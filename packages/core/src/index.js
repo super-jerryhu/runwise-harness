@@ -299,6 +299,15 @@ async function validateTestPlan(runRoot, missing) {
   }
 }
 
+async function validateGrill(runRoot, missing) {
+  const path = join(runRoot, "grill.md");
+  if (!existsSync(path)) return;
+  const content = await readFile(path, "utf8");
+  if (!hasMeaningfulEvidence(content)) {
+    missing.push("grill_evidence");
+  }
+}
+
 async function validateTestRun(runRoot, invalid) {
   const path = join(runRoot, "test_run.json");
   if (!existsSync(path)) return;
@@ -351,6 +360,7 @@ export async function finalGate(runDir) {
   }
 
   await validateSubtasks(root, invalid);
+  await validateGrill(root, missing);
   await validateTestPlan(root, missing);
   await validateTestRun(root, invalid);
 
@@ -416,6 +426,27 @@ export async function recordArchiveGap(runDir, reason) {
   ].join("\n");
   const path = join(root, "archive.md");
   await writeFile(path, content, "utf8");
+  return { path };
+}
+
+export async function recordGrillAnswer(runDir, options = {}) {
+  if (!options.question) throw new Error("recordGrillAnswer requires a question");
+  if (!options.answer) throw new Error("recordGrillAnswer requires an answer");
+  const root = resolve(runDir);
+  await mkdir(root, { recursive: true });
+  const path = join(root, "grill.md");
+  const existing = existsSync(path) ? await readFile(path, "utf8") : "# Grill\n\n";
+  const next = [
+    existing.trimEnd(),
+    "",
+    "## Q&A",
+    "",
+    `### Q: ${options.question}`,
+    "",
+    `A: ${options.answer}`,
+    "",
+  ].join("\n");
+  await writeFile(path, next, "utf8");
   return { path };
 }
 

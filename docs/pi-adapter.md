@@ -38,6 +38,7 @@ The extension registers:
 /runwise-start <requirement title>
 /runwise-status
 /runwise-stage <run-id> <stage>
+/runwise-grill <run-id> <answer>
 /runwise-test-plan <run-id>
 /runwise-test-run <run-id>
 /runwise-archive <run-id> <url> [title]
@@ -52,6 +53,7 @@ The extension registers LLM-callable tools:
 runwise_create_run
 runwise_get_status
 runwise_update_stage
+runwise_record_grill_answer
 runwise_generate_test_plan
 runwise_execute_test_run
 runwise_record_verification

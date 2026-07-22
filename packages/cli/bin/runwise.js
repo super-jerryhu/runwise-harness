@@ -8,6 +8,7 @@ import {
   parseTestPlanCommands,
   initProject,
   recordArchiveLink,
+  recordGrillAnswer,
   recordTestRunResults,
   recordArchiveGap,
   recordVerification,
@@ -38,6 +39,7 @@ Usage:
   runwise start <title> [--now <iso-date>] [--json]
   runwise status [--json]
   runwise stage <run-id-or-dir> <stage> [--json]
+  runwise grill <run-id-or-dir> --question <question> --answer <answer>
   runwise test-plan <run-id-or-dir> [--generate]
   runwise test-run <run-id-or-dir> [--json]
   runwise verify <run-id-or-dir> --command <command> [--exit-code <code>] [--notes <notes>]
@@ -112,6 +114,17 @@ async function main(argv) {
       return 0;
     }
     console.log(`Run stage updated: ${stage}`);
+    return 0;
+  }
+
+  if (command === "grill") {
+    const target = args[0];
+    if (!target) throw new Error("grill requires a run id or run directory");
+    const result = await recordGrillAnswer(resolveRunDir(process.cwd(), target), {
+      question: parseOption(args, "--question"),
+      answer: parseOption(args, "--answer"),
+    });
+    console.log(`Grill answer recorded: ${result.path}`);
     return 0;
   }
 

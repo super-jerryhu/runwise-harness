@@ -85,6 +85,16 @@ export default function runwisePiAdapter(pi: ExtensionAPI) {
     },
   });
 
+  pi.registerCommand("runwise-grill", {
+    description: "Record a Runwise demand-grill question and answer",
+    handler: async (args, ctx) => {
+      const [runId = "", ...answerParts] = args.trim().split(/\s+/);
+      const answer = answerParts.join(" ");
+      const result = await runRunwise(["grill", runId, "--question", "Demand clarification", "--answer", answer], ctx.cwd);
+      ctx.ui.notify(result.stdout || result.stderr, result.code === 0 ? "info" : "warning");
+    },
+  });
+
   pi.registerCommand("runwise-test-plan", {
     description: "Generate a Runwise test plan for a requirement run",
     handler: async (args, ctx) => {
@@ -154,6 +164,22 @@ export default function runwisePiAdapter(pi: ExtensionAPI) {
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return textResult(await runRunwise(["stage", params.runId, params.stage, "--json"], ctx.cwd));
+    },
+  });
+
+  pi.registerTool({
+    name: "runwise_record_grill_answer",
+    label: "Runwise Record Grill Answer",
+    description: "Record demand clarification question and answer evidence for a local Runwise run.",
+    parameters: Type.Object({
+      runId: Type.String({ description: "Runwise run id" }),
+      question: Type.String({ description: "Demand clarification question" }),
+      answer: Type.String({ description: "Demand clarification answer" }),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      return textResult(
+        await runRunwise(["grill", params.runId, "--question", params.question, "--answer", params.answer], ctx.cwd),
+      );
     },
   });
 

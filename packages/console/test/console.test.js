@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { test } from "node:test";
 
 import { createConsoleServer, loadArtifactContent, renderConsoleHtml, loadConsoleState } from "../src/index.js";
-import { recordArchiveGap, recordVerification, startRun, updateRunStage } from "../../core/src/index.js";
+import { recordArchiveGap, recordGrillAnswer, recordVerification, startRun, updateRunStage } from "../../core/src/index.js";
 
 const cli = resolve("packages/cli/bin/runwise.js");
 
@@ -27,6 +27,10 @@ test("loadConsoleState returns local run progress and gate state", async () => {
     command: "npm test",
     exitCode: 0,
     notes: "console state verification",
+  });
+  await recordGrillAnswer(started.runDir, {
+    question: "What console flow should be visible?",
+    answer: "Stage progress and archive gap.",
   });
   await recordArchiveGap(started.runDir, "local-only console test");
   await writeFile(join(started.runDir, "TECH_SPEC.md"), "# TECH_SPEC\n\nConsole design details.\n", "utf8");

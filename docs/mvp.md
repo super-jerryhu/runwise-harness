@@ -149,6 +149,7 @@ The MVP is useful if:
 - Private files stay local.
 - A requirement run produces reusable artifacts.
 - Final gate can block premature completion.
+- Final gate can block missing demand-grill evidence.
 - The workflow is clear enough to build Pi and Codex adapters on top.
 - The test-plan flow can generate baseline cases from local project metadata.
 - The verification flow can execute generated local test commands and persist evidence.

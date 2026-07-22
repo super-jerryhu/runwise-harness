@@ -38,6 +38,7 @@ The first console version shows:
 - missing evidence, gaps, or invalid artifacts
 - final gate blockers
 - next action guidance
+- missing demand-grill evidence
 - links to local run artifacts
 - test plan and verification evidence access
 
