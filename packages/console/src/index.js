@@ -144,6 +144,103 @@ async function loadTestPlanInsight(runDir) {
   };
 }
 
+async function loadTestRunInsight(runDir) {
+  const path = join(runDir, "test_run.json");
+  if (!existsSync(path)) {
+    return { exists: false, status: "missing", total: 0, passed: 0, failed: 0 };
+  }
+
+  try {
+    const parsed = JSON.parse(await readFile(path, "utf8"));
+    if (!["pass", "fail"].includes(parsed.status) || !Array.isArray(parsed.results)) {
+      return { exists: true, status: "invalid", total: 0, passed: 0, failed: 0 };
+    }
+
+    const total = parsed.results.length;
+    const passed = parsed.results.filter((result) => result.exitCode === 0 || result.status === "passed").length;
+    const failed = total - passed;
+    const status = parsed.status === "fail" || failed > 0 ? "fail" : "pass";
+
+    return {
+      exists: true,
+      status,
+      total,
+      passed,
+      failed,
+    };
+  } catch {
+    return { exists: true, status: "invalid", total: 0, passed: 0, failed: 0 };
+  }
+}
+
+function hasMeaningfulArtifactContent(content) {
+  return content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith("#"))
+    .filter((line) => !/^Task:\s*/i.test(line))
+    .filter((line) => !/^-{3,}$/.test(line)).length > 0;
+}
+
+function hasGap(content) {
+  return /\bgap\b|verification required|manual verification|required|not run|skipped/i.test(content);
+}
+
+function extractFirstUrl(content) {
+  const url = content.match(/^URL:\s*(https?:\/\/\S+)/im)?.[1] || content.match(/https?:\/\/\S+/i)?.[0];
+  return url?.replace(/[),.;\]]+$/, "");
+}
+
+async function loadArchiveInsight(runDir) {
+  const path = join(runDir, "archive.md");
+  if (!existsSync(path)) {
+    return { exists: false, status: "missing", url: undefined };
+  }
+
+  const content = await readFile(path, "utf8");
+  const url = extractFirstUrl(content);
+  if (!hasMeaningfulArtifactContent(content)) {
+    return { exists: true, status: "empty", url };
+  }
+  if (hasGap(content)) {
+    return { exists: true, status: "gap", url };
+  }
+  if (url) {
+    return { exists: true, status: "linked", url };
+  }
+  return { exists: true, status: "recorded", url };
+}
+
+async function loadMemoryInsight(runDir) {
+  const path = join(runDir, "memory_capture.md");
+  if (!existsSync(path)) {
+    return { exists: false, captured: false };
+  }
+
+  const content = await readFile(path, "utf8");
+  return { exists: true, captured: hasMeaningfulArtifactContent(content) };
+}
+
+function formatTestRunSummary(testRun) {
+  if (testRun.status === "missing" || testRun.status === "invalid") return testRun.status;
+  const count = testRun.status === "fail" ? testRun.failed : testRun.passed;
+  return `${testRun.status} ${count}/${testRun.total}`;
+}
+
+function formatArchiveSummary(archive) {
+  if (!archive.exists) return "archive missing";
+  if (archive.status === "linked") return "archive link";
+  if (archive.status === "gap") return "archive gap";
+  if (archive.status === "recorded") return "archive recorded";
+  return "archive empty";
+}
+
+function formatMemorySummary(memory) {
+  if (!memory.exists || !memory.captured) return "memory missing";
+  return "memory captured";
+}
+
 function nextActionForGate(gate = {}, grill = {}) {
   const missing = gate.missing || [];
   const gaps = gate.gaps || [];
@@ -173,11 +270,17 @@ export async function loadConsoleState(root = process.cwd()) {
     const gate = await finalGate(runDir);
     const grill = await loadGrillInsight(runDir);
     const testPlan = await loadTestPlanInsight(runDir);
+    const testRun = await loadTestRunInsight(runDir);
+    const archive = await loadArchiveInsight(runDir);
+    const memory = await loadMemoryInsight(runDir);
     runs.push({
       ...run,
       runDir,
       grill,
       testPlan,
+      testRun,
+      archive,
+      memory,
       finalGate: gate,
       progress: progressForStage(run.stage),
       blockers: blockersForGate(gate),
@@ -224,6 +327,12 @@ export function renderConsoleHtml(state) {
       const progress = run.progress || progressForStage(run.stage);
       const grill = run.grill || { type: "unknown", questionCount: 0, answerCount: 0, answered: false };
       const testPlan = run.testPlan || { exists: false, generated: false, caseCount: 0, automatedCount: 0, manualCount: 0 };
+      const testRun = run.testRun || { exists: false, status: "missing", total: 0, passed: 0, failed: 0 };
+      const archive = run.archive || { exists: false, status: "missing", url: undefined };
+      const memory = run.memory || { exists: false, captured: false };
+      const archiveSummary = archive.url
+        ? `<a href="${escapeHtml(archive.url)}">${escapeHtml(formatArchiveSummary(archive))}</a>`
+        : escapeHtml(formatArchiveSummary(archive));
       const artifactLinks = (run.artifacts || [])
         .filter((artifact) => artifact.exists)
         .map((artifact) => `<a href="${escapeHtml(artifact.href)}">${escapeHtml(artifact.name)}</a>`)
@@ -247,17 +356,24 @@ export function renderConsoleHtml(state) {
           <div class="progress-label">${escapeHtml(testPlan.automatedCount)} automated</div>
           <div class="progress-label">${escapeHtml(testPlan.manualCount)} manual</div>
         </td>
+        <td>
+          <span class="gate ${statusClass(testRun.status)}">${escapeHtml(formatTestRunSummary(testRun))}</span>
+          <div class="progress-label">${escapeHtml(testRun.passed)} passed</div>
+          <div class="progress-label">${escapeHtml(testRun.failed)} failed</div>
+        </td>
         <td><span class="gate ${statusClass(gateStatus)}">${escapeHtml(gateStatus)}</span></td>
         <td>
           <div>${issues.length ? escapeHtml(issues.join(", ")) : "ready"}</div>
           <div class="next-action">${escapeHtml(run.nextAction || nextActionForGate(run.finalGate, grill))}</div>
+          <div class="progress-label">${archiveSummary}</div>
+          <div class="progress-label">${escapeHtml(formatMemorySummary(memory))}</div>
           <div class="artifacts">${artifactLinks || "no artifacts"}</div>
         </td>
       </tr>`;
     })
     .join("");
 
-  const empty = `<tr><td colspan="7" class="empty">No Runwise runs found. Start one with <code>runwise start "Requirement title"</code>.</td></tr>`;
+  const empty = `<tr><td colspan="8" class="empty">No Runwise runs found. Start one with <code>runwise start "Requirement title"</code>.</td></tr>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -447,6 +563,7 @@ export function renderConsoleHtml(state) {
           <th>Stage</th>
           <th>Grill</th>
           <th>Test Plan</th>
+          <th>Test Run</th>
           <th>Final Gate</th>
           <th>Evidence</th>
         </tr>
