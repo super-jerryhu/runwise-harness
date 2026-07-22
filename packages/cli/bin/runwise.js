@@ -9,6 +9,7 @@ import {
   resolveRunDir,
   scanProject,
   startRun,
+  writeFinalGateReport,
 } from "../../core/src/index.js";
 
 function parseOption(args, name) {
@@ -17,18 +18,22 @@ function parseOption(args, name) {
   return args[index + 1];
 }
 
+function hasFlag(args, name) {
+  return args.includes(name);
+}
+
 function printHelp() {
   console.log(`Runwise Harness
 
 Usage:
   runwise init [--name <name>]
   runwise scan
-  runwise start <title> [--now <iso-date>]
-  runwise status
+  runwise start <title> [--now <iso-date>] [--json]
+  runwise status [--json]
   runwise test-plan <run-id-or-dir>
   runwise verify <run-id-or-dir> --command <command> [--exit-code <code>] [--notes <notes>]
   runwise archive-gap <run-id-or-dir> --reason <reason>
-  runwise final-gate <run-id-or-dir>
+  runwise final-gate <run-id-or-dir> [--write-report]
 `);
 }
 
@@ -61,6 +66,10 @@ async function main(argv) {
     const title = titleParts.join(" ").trim();
     const now = parseOption(args, "--now");
     const result = await startRun(process.cwd(), { title, now });
+    if (hasFlag(args, "--json")) {
+      console.log(JSON.stringify(result, null, 2));
+      return 0;
+    }
     console.log(`Run created: ${result.runId}`);
     console.log(result.runDir);
     return 0;
@@ -68,6 +77,10 @@ async function main(argv) {
 
   if (command === "status") {
     const status = await getStatus(process.cwd());
+    if (hasFlag(args, "--json")) {
+      console.log(JSON.stringify(status, null, 2));
+      return 0;
+    }
     if (status.runs.length === 0) {
       console.log("No Runwise runs found.");
       return 0;
@@ -109,7 +122,11 @@ async function main(argv) {
   if (command === "final-gate") {
     const target = args[0];
     if (!target) throw new Error("final-gate requires a run id or run directory");
-    const result = await finalGate(resolveRunDir(process.cwd(), target));
+    const runDir = resolveRunDir(process.cwd(), target);
+    const result = await finalGate(runDir);
+    if (hasFlag(args, "--write-report")) {
+      await writeFinalGateReport(runDir, result);
+    }
     console.log(JSON.stringify(result, null, 2));
     return result.status === "fail" || result.status === "blocked" ? 1 : 0;
   }

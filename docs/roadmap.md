@@ -77,6 +77,7 @@ Exit criteria:
 - A user or agent can create a run.
 - A user or agent can inspect status.
 - Final gate can pass, fail, or pass with gaps.
+- Adapter-facing commands can emit JSON for deterministic tool use.
 
 ## Phase 3: Project Scanner
 
@@ -111,6 +112,7 @@ Deliverables:
 - command result capture
 - verification gap recording
 - final gate checks for test evidence
+- machine-readable final gate report output
 
 Exit criteria:
 

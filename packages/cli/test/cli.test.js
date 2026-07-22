@@ -93,3 +93,51 @@ test("CLI scan emits fixture project metadata without private file contents", as
   assert.ok(payload.excludedPaths.includes(".env"));
   assert.ok(!scan.stdout.includes("SHOULD_NOT_BE_SCANNED"));
 });
+
+test("CLI emits adapter-friendly JSON and writes final gate reports", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-cli-json-"));
+
+  assert.equal(run(["init", "--name", "json-demo"], root).status, 0);
+  const start = run(["start", "Adapter JSON flow", "--now", "2026-07-22T10:05:00Z", "--json"], root);
+  assert.equal(start.status, 0, start.stderr);
+  const started = JSON.parse(start.stdout);
+  assert.equal(started.runId, "20260722-100500-adapter-json-flow");
+  assert.ok(started.runDir.endsWith(".runwise/runs/20260722-100500-adapter-json-flow"));
+
+  const status = run(["status", "--json"], root);
+  assert.equal(status.status, 0, status.stderr);
+  const statusPayload = JSON.parse(status.stdout);
+  assert.equal(statusPayload.runs[0].id, "20260722-100500-adapter-json-flow");
+
+  assert.equal(
+    run(
+      [
+        "verify",
+        "20260722-100500-adapter-json-flow",
+        "--command",
+        "npm test",
+        "--exit-code",
+        "0",
+        "--notes",
+        "adapter verification",
+      ],
+      root,
+    ).status,
+    0,
+  );
+  assert.equal(
+    run(["archive-gap", "20260722-100500-adapter-json-flow", "--reason", "local-only adapter test"], root).status,
+    0,
+  );
+
+  const gate = run(["final-gate", "20260722-100500-adapter-json-flow", "--write-report"], root);
+  assert.equal(gate.status, 0, gate.stdout);
+  const gatePayload = JSON.parse(gate.stdout);
+  assert.equal(gatePayload.status, "pass_with_gaps");
+
+  const report = JSON.parse(
+    await readFile(join(root, ".runwise", "runs", "20260722-100500-adapter-json-flow", "final_gate.json"), "utf8"),
+  );
+  assert.equal(report.status, "pass_with_gaps");
+  assert.deepEqual(report.gaps, ["archive"]);
+});
