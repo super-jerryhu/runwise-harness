@@ -113,6 +113,37 @@ async function loadGrillInsight(runDir) {
   };
 }
 
+async function loadTestPlanInsight(runDir) {
+  const path = join(runDir, "test_plan.md");
+  if (!existsSync(path)) {
+    return { exists: false, generated: false, caseCount: 0, automatedCount: 0, manualCount: 0 };
+  }
+
+  const content = await readFile(path, "utf8");
+  const caseIds = new Set(content.match(/\bTC-\d{3,}\b/g) || []);
+  const rows = content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("| TC-"))
+    .map((line) =>
+      line
+        .split("|")
+        .slice(1, -1)
+        .map((cell) => cell.trim()),
+    );
+  const automatedCount = rows.filter((cells) => Boolean(cells[5])).length;
+  const manualRows = rows.filter((cells) => cells[4]?.toLowerCase() === "manual" || !cells[5]).length;
+  const unparsedCaseCount = Math.max(0, caseIds.size - rows.length);
+
+  return {
+    exists: true,
+    generated: /^Generated from local Runwise scan metadata\./m.test(content),
+    caseCount: caseIds.size,
+    automatedCount,
+    manualCount: manualRows + unparsedCaseCount,
+  };
+}
+
 function nextActionForGate(gate = {}, grill = {}) {
   const missing = gate.missing || [];
   const gaps = gate.gaps || [];
@@ -141,10 +172,12 @@ export async function loadConsoleState(root = process.cwd()) {
     const runDir = resolveRunDir(projectRoot, run.id);
     const gate = await finalGate(runDir);
     const grill = await loadGrillInsight(runDir);
+    const testPlan = await loadTestPlanInsight(runDir);
     runs.push({
       ...run,
       runDir,
       grill,
+      testPlan,
       finalGate: gate,
       progress: progressForStage(run.stage),
       blockers: blockersForGate(gate),
@@ -190,6 +223,7 @@ export function renderConsoleHtml(state) {
       const issues = run.blockers || [...missing.map((item) => `missing: ${item}`), ...gaps.map((item) => `gap: ${item}`), ...invalid.map((item) => `invalid: ${item}`)];
       const progress = run.progress || progressForStage(run.stage);
       const grill = run.grill || { type: "unknown", questionCount: 0, answerCount: 0, answered: false };
+      const testPlan = run.testPlan || { exists: false, generated: false, caseCount: 0, automatedCount: 0, manualCount: 0 };
       const artifactLinks = (run.artifacts || [])
         .filter((artifact) => artifact.exists)
         .map((artifact) => `<a href="${escapeHtml(artifact.href)}">${escapeHtml(artifact.name)}</a>`)
@@ -208,6 +242,11 @@ export function renderConsoleHtml(state) {
           <span class="pill">${escapeHtml(grill.type)}</span>
           <div class="progress-label">${escapeHtml(grill.answerCount)}/${escapeHtml(grill.questionCount)} answered</div>
         </td>
+        <td>
+          <span class="pill">${escapeHtml(testPlan.exists ? `${testPlan.caseCount} ${testPlan.caseCount === 1 ? "case" : "cases"}` : "missing")}</span>
+          <div class="progress-label">${escapeHtml(testPlan.automatedCount)} automated</div>
+          <div class="progress-label">${escapeHtml(testPlan.manualCount)} manual</div>
+        </td>
         <td><span class="gate ${statusClass(gateStatus)}">${escapeHtml(gateStatus)}</span></td>
         <td>
           <div>${issues.length ? escapeHtml(issues.join(", ")) : "ready"}</div>
@@ -218,7 +257,7 @@ export function renderConsoleHtml(state) {
     })
     .join("");
 
-  const empty = `<tr><td colspan="6" class="empty">No Runwise runs found. Start one with <code>runwise start "Requirement title"</code>.</td></tr>`;
+  const empty = `<tr><td colspan="7" class="empty">No Runwise runs found. Start one with <code>runwise start "Requirement title"</code>.</td></tr>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -407,6 +446,7 @@ export function renderConsoleHtml(state) {
           <th>Requirement</th>
           <th>Stage</th>
           <th>Grill</th>
+          <th>Test Plan</th>
           <th>Final Gate</th>
           <th>Evidence</th>
         </tr>

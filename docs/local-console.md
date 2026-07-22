@@ -36,6 +36,7 @@ The first console version shows:
 - stage and stage progress
 - inferred grill type
 - grill question and answer progress
+- test plan case, automated, and manual progress
 - final gate status
 - missing evidence, gaps, or invalid artifacts
 - final gate blockers
@@ -53,7 +54,7 @@ GET /api/state
 GET /runs/:runId/artifacts/:artifactName
 ```
 
-`/api/state` includes the project root, privacy boundary, run state, stage progress, final gate state, blocker summaries, next action guidance, and artifact metadata.
+`/api/state` includes the project root, privacy boundary, run state, stage progress, test plan progress, final gate state, blocker summaries, next action guidance, and artifact metadata.
 
 The artifact route can read known local run artifacts such as:
 

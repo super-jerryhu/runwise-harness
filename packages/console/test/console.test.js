@@ -34,6 +34,22 @@ test("loadConsoleState returns local run progress and gate state", async () => {
   });
   await recordArchiveGap(started.runDir, "local-only console test");
   await writeFile(join(started.runDir, "TECH_SPEC.md"), "# TECH_SPEC\n\nConsole design details.\n", "utf8");
+  await writeFile(
+    join(started.runDir, "test_plan.md"),
+    [
+      "# Test Plan",
+      "",
+      "Generated from local Runwise scan metadata.",
+      "",
+      "| ID | Title | Source | Risk | Type | Command | Status |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| TC-001 | Run unit tests | acceptance_criteria | regression | automated | npm test | pending |",
+      "| TC-002 | Run build | acceptance_criteria | release | automated | npm run build | pending |",
+      "| TC-003 | Review console copy | acceptance_criteria | usability | manual | | pending |",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
   await writeFile(join(started.runDir, "test_run.json"), `${JSON.stringify({ status: "pass", results: [] })}\n`, "utf8");
   await updateRunStage(started.runDir, "testing");
 
@@ -53,6 +69,13 @@ test("loadConsoleState returns local run progress and gate state", async () => {
   assert.equal(state.runs[0].grill.questionCount, 6);
   assert.equal(state.runs[0].grill.answered, true);
   assert.equal(state.runs[0].grill.answerCount, 1);
+  assert.deepEqual(state.runs[0].testPlan, {
+    exists: true,
+    generated: true,
+    caseCount: 3,
+    automatedCount: 2,
+    manualCount: 1,
+  });
   assert.match(state.runs[0].nextAction, /archive/i);
   assert.deepEqual(state.runs[0].blockers, ["gap: archive"]);
   assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "TECH_SPEC.md" && artifact.exists));
@@ -72,6 +95,7 @@ test("renderConsoleHtml includes run list, progress, and local-first boundary", 
         stage: "testing",
         progress: { currentIndex: 6, total: 11, percent: 55, label: "Testing" },
         grill: { type: "backend", questionCount: 8, answerCount: 2, answered: true },
+        testPlan: { exists: true, generated: true, caseCount: 3, automatedCount: 2, manualCount: 1 },
         nextAction: "Review archive gap or record canonical archive link.",
         blockers: ["gap: archive"],
         finalGate: { status: "pass_with_gaps", missing: [], gaps: ["archive"], invalid: [] },
@@ -89,6 +113,9 @@ test("renderConsoleHtml includes run list, progress, and local-first boundary", 
   assert.match(html, /55%/);
   assert.match(html, /backend/);
   assert.match(html, /2\/8 answered/);
+  assert.match(html, /3 cases/);
+  assert.match(html, /2 automated/);
+  assert.match(html, /1 manual/);
   assert.match(html, /Review archive gap/);
   assert.match(html, /gap: archive/);
   assert.match(html, /pass_with_gaps/);
