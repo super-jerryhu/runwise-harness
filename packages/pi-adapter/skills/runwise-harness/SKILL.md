@@ -29,6 +29,7 @@ Runwise is local-first. Do not upload source code, secrets, logs, embeddings, or
 /runwise-scan
 /runwise-start <requirement title>
 /runwise-status
+/runwise-stage <run-id> <stage>
 /runwise-test-plan <run-id>
 /runwise-test-run <run-id>
 /runwise-final-gate <run-id>
@@ -38,6 +39,7 @@ Runwise is local-first. Do not upload source code, secrets, logs, embeddings, or
 
 - `runwise_create_run`
 - `runwise_get_status`
+- `runwise_update_stage`
 - `runwise_generate_test_plan`
 - `runwise_execute_test_run`
 - `runwise_record_verification`

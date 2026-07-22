@@ -96,6 +96,20 @@ test("CLI can generate a test plan from scanner output", async () => {
   assert.match(plan, /npm run build/);
 });
 
+test("CLI can update a run stage for progress tracking", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-cli-stage-"));
+
+  assert.equal(run(["start", "Track stage", "--now", "2026-07-22T12:04:00Z"], root).status, 0);
+
+  const updated = run(["stage", "20260722-120400-track-stage", "testing", "--json"], root);
+  assert.equal(updated.status, 0, updated.stderr);
+  const payload = JSON.parse(updated.stdout);
+  assert.equal(payload.stage, "testing");
+
+  const status = JSON.parse(run(["status", "--json"], root).stdout);
+  assert.equal(status.runs[0].stage, "testing");
+});
+
 test("CLI can execute generated test plan commands and record verification evidence", async () => {
   const root = await mkdtemp(join(tmpdir(), "runwise-cli-test-run-"));
   await writeFile(

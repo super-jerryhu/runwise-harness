@@ -99,7 +99,7 @@ The design should include:
 
 Break the work into concrete subtasks that can be implemented and verified.
 
-For large runs, subtasks should be stored as structured JSON so agents and dashboards can track progress.
+For large runs, subtasks should be stored as structured JSON so agents and dashboards can track progress. The current run stage should be updated with `runwise stage <run-id> <stage>` as the work moves through intake, context alignment, implementation, testing, final gate, archive, and memory capture.
 
 ### 6. Implementation
 
@@ -197,4 +197,3 @@ A local run can be represented as:
   final_report.md
   memory_capture.md
 ```
-

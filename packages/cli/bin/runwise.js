@@ -13,6 +13,7 @@ import {
   resolveRunDir,
   scanProject,
   startRun,
+  updateRunStage,
   writeFinalGateReport,
 } from "../../core/src/index.js";
 import { createConsoleServer } from "../../console/src/index.js";
@@ -35,6 +36,7 @@ Usage:
   runwise scan
   runwise start <title> [--now <iso-date>] [--json]
   runwise status [--json]
+  runwise stage <run-id-or-dir> <stage> [--json]
   runwise test-plan <run-id-or-dir> [--generate]
   runwise test-run <run-id-or-dir> [--json]
   runwise verify <run-id-or-dir> --command <command> [--exit-code <code>] [--notes <notes>]
@@ -95,6 +97,19 @@ async function main(argv) {
     for (const run of status.runs) {
       console.log(`${run.id}\t${run.stage}\t${run.title}`);
     }
+    return 0;
+  }
+
+  if (command === "stage") {
+    const target = args[0];
+    const stage = args[1];
+    if (!target || !stage) throw new Error("stage requires a run id or run directory and a stage");
+    const result = await updateRunStage(resolveRunDir(process.cwd(), target), stage);
+    if (hasFlag(args, "--json")) {
+      console.log(JSON.stringify(result, null, 2));
+      return 0;
+    }
+    console.log(`Run stage updated: ${stage}`);
     return 0;
   }
 
