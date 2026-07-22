@@ -147,7 +147,7 @@ function detectFrameworks(pkg) {
   );
 }
 
-const DEFAULT_EXCLUDED_DIRS = new Set([".git", ".runwise", "node_modules", "dist", "build", "coverage"]);
+const DEFAULT_EXCLUDED_DIRS = new Set([".git", ".runwise", "node_modules", "dist", "build", "coverage", "privity"]);
 const DEFAULT_EXCLUDED_FILES = new Set([".env"]);
 
 function toPosixPath(path) {
