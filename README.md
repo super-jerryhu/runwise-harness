@@ -90,6 +90,7 @@ The first public milestone is a local-first open-source core:
 - [Roadmap](docs/roadmap.md)
 - [MVP Plan](docs/mvp.md)
 - [CLI](docs/cli.md)
+- [Pi Adapter](docs/pi-adapter.md)
 - [Privacy Model](docs/privacy.md)
 - [Architecture](docs/architecture.md)
 - [Open-Core Strategy](docs/open-core.md)
