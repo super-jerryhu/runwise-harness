@@ -168,6 +168,8 @@ Archive the run to team systems:
 
 Duplicate archive documents should be avoided. If the same requirement already exists, update the canonical record.
 
+Record the canonical archive link with `runwise archive <run-id> --url <url> --title <title>`. Use `runwise archive-gap` only when external archive is intentionally unavailable.
+
 ### 11. Memory Capture
 
 Extract reusable experience:

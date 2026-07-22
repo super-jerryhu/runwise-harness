@@ -38,6 +38,7 @@ runwise stage <run-id> <stage> --json
 runwise test-plan <run-id> --generate
 runwise test-run <run-id>
 runwise verify <run-id> --command "<command>" --exit-code <code> --notes "<notes>"
+runwise archive <run-id> --url "<canonical-url>" --title "<title>"
 runwise archive-gap <run-id> --reason "<reason>"
 runwise final-gate <run-id> --write-report
 ```

@@ -419,6 +419,27 @@ export async function recordArchiveGap(runDir, reason) {
   return { path };
 }
 
+export async function recordArchiveLink(runDir, options = {}) {
+  if (!options.url) {
+    throw new Error("recordArchiveLink requires a url");
+  }
+  const root = resolve(runDir);
+  await mkdir(root, { recursive: true });
+  const title = options.title || "Archive Link";
+  const content = [
+    "# Archive",
+    "",
+    "Canonical archive recorded.",
+    "",
+    `Title: ${title}`,
+    `URL: ${options.url}`,
+    "",
+  ].join("\n");
+  const path = join(root, "archive.md");
+  await writeFile(path, content, "utf8");
+  return { path };
+}
+
 function commandForScript(packageManager, script) {
   if (script === "test") return `${packageManager} test`;
   if (packageManager === "npm") return `npm run ${script}`;

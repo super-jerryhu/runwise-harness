@@ -101,6 +101,19 @@ export default function runwisePiAdapter(pi: ExtensionAPI) {
     },
   });
 
+  pi.registerCommand("runwise-archive", {
+    description: "Record a canonical archive link for a Runwise run",
+    handler: async (args, ctx) => {
+      const [runId = "", url = "", ...titleParts] = args.trim().split(/\s+/);
+      const title = titleParts.join(" ");
+      const result = await runRunwise(
+        title ? ["archive", runId, "--url", url, "--title", title] : ["archive", runId, "--url", url],
+        ctx.cwd,
+      );
+      ctx.ui.notify(result.stdout || result.stderr, result.code === 0 ? "info" : "warning");
+    },
+  });
+
   pi.registerCommand("runwise-final-gate", {
     description: "Run Runwise final gate for a requirement run",
     handler: async (args, ctx) => {
@@ -182,6 +195,27 @@ export default function runwisePiAdapter(pi: ExtensionAPI) {
       return textResult(
         await runRunwise(
           ["verify", params.runId, "--command", params.command, "--exit-code", params.exitCode, "--notes", params.notes ?? ""],
+          ctx.cwd,
+        ),
+      );
+    },
+  });
+
+  pi.registerTool({
+    name: "runwise_record_archive",
+    label: "Runwise Record Archive",
+    description: "Record a canonical archive link for a local Runwise run.",
+    parameters: Type.Object({
+      runId: Type.String({ description: "Runwise run id" }),
+      url: Type.String({ description: "Canonical archive URL" }),
+      title: Type.Optional(Type.String({ description: "Archive title" })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      return textResult(
+        await runRunwise(
+          params.title
+            ? ["archive", params.runId, "--url", params.url, "--title", params.title]
+            : ["archive", params.runId, "--url", params.url],
           ctx.cwd,
         ),
       );

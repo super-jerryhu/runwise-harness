@@ -7,6 +7,7 @@ import {
   getStatus,
   parseTestPlanCommands,
   initProject,
+  recordArchiveLink,
   recordTestRunResults,
   recordArchiveGap,
   recordVerification,
@@ -40,6 +41,7 @@ Usage:
   runwise test-plan <run-id-or-dir> [--generate]
   runwise test-run <run-id-or-dir> [--json]
   runwise verify <run-id-or-dir> --command <command> [--exit-code <code>] [--notes <notes>]
+  runwise archive <run-id-or-dir> --url <url> [--title <title>]
   runwise archive-gap <run-id-or-dir> --reason <reason>
   runwise final-gate <run-id-or-dir> [--write-report]
   runwise console [--host <host>] [--port <port>]
@@ -180,6 +182,17 @@ async function main(argv) {
     if (!target) throw new Error("archive-gap requires a run id or run directory");
     const result = await recordArchiveGap(resolveRunDir(process.cwd(), target), parseOption(args, "--reason"));
     console.log(`Archive gap recorded: ${result.path}`);
+    return 0;
+  }
+
+  if (command === "archive") {
+    const target = args[0];
+    if (!target) throw new Error("archive requires a run id or run directory");
+    const result = await recordArchiveLink(resolveRunDir(process.cwd(), target), {
+      url: parseOption(args, "--url"),
+      title: parseOption(args, "--title"),
+    });
+    console.log(`Archive recorded: ${result.path}`);
     return 0;
   }
 
