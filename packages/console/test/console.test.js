@@ -49,6 +49,10 @@ test("loadConsoleState returns local run progress and gate state", async () => {
   assert.deepEqual(state.runs[0].finalGate.gaps, ["archive"]);
   assert.equal(state.runs[0].progress.currentIndex, 6);
   assert.equal(state.runs[0].progress.total, 11);
+  assert.equal(state.runs[0].grill.type, "generic");
+  assert.equal(state.runs[0].grill.questionCount, 6);
+  assert.equal(state.runs[0].grill.answered, true);
+  assert.equal(state.runs[0].grill.answerCount, 1);
   assert.match(state.runs[0].nextAction, /archive/i);
   assert.deepEqual(state.runs[0].blockers, ["gap: archive"]);
   assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "TECH_SPEC.md" && artifact.exists));
@@ -67,6 +71,7 @@ test("renderConsoleHtml includes run list, progress, and local-first boundary", 
         title: "Console <flow>",
         stage: "testing",
         progress: { currentIndex: 6, total: 11, percent: 55, label: "Testing" },
+        grill: { type: "backend", questionCount: 8, answerCount: 2, answered: true },
         nextAction: "Review archive gap or record canonical archive link.",
         blockers: ["gap: archive"],
         finalGate: { status: "pass_with_gaps", missing: [], gaps: ["archive"], invalid: [] },
@@ -82,6 +87,8 @@ test("renderConsoleHtml includes run list, progress, and local-first boundary", 
   assert.match(html, /Console &lt;flow&gt;/);
   assert.match(html, /testing/);
   assert.match(html, /55%/);
+  assert.match(html, /backend/);
+  assert.match(html, /2\/8 answered/);
   assert.match(html, /Review archive gap/);
   assert.match(html, /gap: archive/);
   assert.match(html, /pass_with_gaps/);
