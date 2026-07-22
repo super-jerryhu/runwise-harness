@@ -91,6 +91,7 @@ Scanner outputs:
 - docs index
 - API/schema hints
 - risk hints
+- excluded paths
 - generated project wiki
 
 Exit criteria:
@@ -216,4 +217,3 @@ Local Core + CLI + Templates + Basic Final Gate
 ```
 
 This milestone proves the core workflow before investing heavily in adapters or cloud.
-

@@ -42,6 +42,22 @@ Creates:
 
 The scanner does not upload source code.
 
+Current scan output includes:
+
+```text
+packageManager
+scripts
+frameworks
+docs
+apiHints
+dbHints
+serviceHints
+excludedPaths
+privacy
+```
+
+The scanner recursively walks the project while excluding high-noise and private paths such as `.git`, `.runwise`, `node_modules`, build outputs, coverage outputs, and `.env`.
+
 ### `runwise start`
 
 Create a requirement run.
@@ -122,6 +138,14 @@ blocked
 
 `fail` exits with code `1`. Other statuses exit with code `0`.
 
+The MVP final gate validates:
+
+- required run files exist
+- verification evidence exists or an explicit gap is recorded
+- archive evidence exists or an explicit gap is recorded
+- `subtasks.json` is valid JSON and contains a `subtasks` array
+- `test_plan.md` contains at least one `TC-###` test case
+
 ## Development
 
 Run tests:
@@ -129,4 +153,3 @@ Run tests:
 ```bash
 npm test
 ```
-

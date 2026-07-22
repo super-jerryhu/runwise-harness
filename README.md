@@ -75,9 +75,10 @@ This repository is in early design and bootstrap stage.
 The first public milestone is a local-first open-source core:
 
 - local run ledger
-- project scanner
+- recursive project scanner
 - workflow artifacts
 - basic final gate
+- scanner fixtures
 - Pi adapter
 - Codex adapter
 

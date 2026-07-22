@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { basename, join, relative, resolve } from "node:path";
 
 const RUNWISE_DIR = ".runwise";
 const RUN_FILES = [
@@ -81,6 +81,20 @@ function templateFor(file, title) {
   if (file === "subtasks.json") {
     return `${JSON.stringify({ task: title, subtasks: [] }, null, 2)}\n`;
   }
+  if (file === "test_plan.md") {
+    return [
+      "# Test Plan",
+      "",
+      `Task: ${title}`,
+      "",
+      "## Test Cases",
+      "",
+      "| ID | Title | Source | Risk | Type | Command | Status |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| TC-001 | Define verification for this requirement | acceptance_criteria |  | manual |  | pending |",
+      "",
+    ].join("\n");
+  }
   const heading = file
     .replace(".md", "")
     .replace(/_/g, " ")
@@ -133,12 +147,42 @@ function detectFrameworks(pkg) {
   );
 }
 
-async function listDocs(root) {
-  const entries = await readdir(root, { withFileTypes: true });
-  return entries
-    .filter((entry) => entry.isFile() && /\.md$/i.test(entry.name))
-    .map((entry) => entry.name)
-    .sort();
+const DEFAULT_EXCLUDED_DIRS = new Set([".git", ".runwise", "node_modules", "dist", "build", "coverage"]);
+const DEFAULT_EXCLUDED_FILES = new Set([".env"]);
+
+function toPosixPath(path) {
+  return path.split("\\").join("/");
+}
+
+async function walkProject(root, current = root, files = [], excludedPaths = []) {
+  const entries = await readdir(current, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = join(current, entry.name);
+    const relPath = toPosixPath(relative(root, fullPath));
+    if (entry.isDirectory()) {
+      if (DEFAULT_EXCLUDED_DIRS.has(entry.name)) {
+        excludedPaths.push(relPath);
+        continue;
+      }
+      await walkProject(root, fullPath, files, excludedPaths);
+      continue;
+    }
+    if (DEFAULT_EXCLUDED_FILES.has(entry.name)) {
+      excludedPaths.push(relPath);
+      continue;
+    }
+    files.push(relPath);
+  }
+  return { files: files.sort(), excludedPaths: excludedPaths.sort() };
+}
+
+function detectPathHints(files) {
+  return {
+    docs: files.filter((file) => /\.md$/i.test(file)).sort(),
+    apiHints: files.filter((file) => /(^|\/)(api|routes?)(\/|\.|-|_)/i.test(file)).sort(),
+    dbHints: files.filter((file) => /(^|\/)(db|database|migrations?|schema)(\/|\.|-|_)/i.test(file)).sort(),
+    serviceHints: files.filter((file) => /(^|\/)(services?|modules?)(\/|\.|-|_)/i.test(file)).sort(),
+  };
 }
 
 export async function scanProject(root = process.cwd()) {
@@ -150,12 +194,14 @@ export async function scanProject(root = process.cwd()) {
   const packageManager = detectPackageManager(projectRoot);
   const scripts = Object.keys(pkg?.scripts || {}).sort();
   const frameworks = detectFrameworks(pkg).sort();
-  const docs = await listDocs(projectRoot);
+  const { files, excludedPaths } = await walkProject(projectRoot);
+  const pathHints = detectPathHints(files);
   const scan = {
     packageManager,
     scripts,
     frameworks,
-    docs,
+    ...pathHints,
+    excludedPaths,
     privacy: {
       sourceUpload: false,
       mode: "local_only",
@@ -172,7 +218,10 @@ export async function scanProject(root = process.cwd()) {
       "",
       `- package manager: ${packageManager}`,
       `- frameworks: ${frameworks.length ? frameworks.join(", ") : "unknown"}`,
-      `- docs: ${docs.length ? docs.join(", ") : "none"}`,
+      `- docs: ${pathHints.docs.length ? pathHints.docs.join(", ") : "none"}`,
+      `- api hints: ${pathHints.apiHints.length ? pathHints.apiHints.join(", ") : "none"}`,
+      `- db hints: ${pathHints.dbHints.length ? pathHints.dbHints.join(", ") : "none"}`,
+      `- service hints: ${pathHints.serviceHints.length ? pathHints.serviceHints.join(", ") : "none"}`,
       "- source upload: false",
       "",
     ].join("\n"),
@@ -202,10 +251,31 @@ function hasGap(text) {
   return /\bgap\b|verification required|manual verification|required|not run|skipped/i.test(text);
 }
 
+async function validateSubtasks(runRoot, invalid) {
+  const path = join(runRoot, "subtasks.json");
+  if (!existsSync(path)) return;
+  try {
+    const parsed = JSON.parse(await readFile(path, "utf8"));
+    if (!Array.isArray(parsed.subtasks)) invalid.push("subtasks.json");
+  } catch {
+    invalid.push("subtasks.json");
+  }
+}
+
+async function validateTestPlan(runRoot, missing) {
+  const path = join(runRoot, "test_plan.md");
+  if (!existsSync(path)) return;
+  const content = await readFile(path, "utf8");
+  if (!/\bTC-\d{3}\b/.test(content)) {
+    missing.push("test_cases");
+  }
+}
+
 export async function finalGate(runDir) {
   const root = resolve(runDir);
   const missing = [];
   const gaps = [];
+  const invalid = [];
 
   for (const file of ["run.yaml", "intake.md", "grill.md", "test_plan.md", "final_report.md"]) {
     if (!existsSync(join(root, file))) missing.push(file);
@@ -234,11 +304,14 @@ export async function finalGate(runDir) {
     else if (hasGap(archive)) gaps.push("archive");
   }
 
+  await validateSubtasks(root, invalid);
+  await validateTestPlan(root, missing);
+
   let status = "pass";
-  if (missing.length > 0) status = "fail";
+  if (missing.length > 0 || invalid.length > 0) status = "fail";
   else if (gaps.length > 0) status = "pass_with_gaps";
 
-  return { status, missing, gaps };
+  return { status, missing, gaps, invalid };
 }
 
 export function artifactPath(runDir, artifactName) {
