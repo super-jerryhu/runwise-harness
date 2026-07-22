@@ -1,7 +1,23 @@
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 import { finalGate, getStatus, resolveRunDir } from "../../core/src/index.js";
+
+const ARTIFACT_FILES = [
+  "intake.md",
+  "grill.md",
+  "facts.md",
+  "TECH_SPEC.md",
+  "subtasks.json",
+  "test_plan.md",
+  "verification.md",
+  "archive.md",
+  "final_report.md",
+  "memory_capture.md",
+  "final_gate.json",
+];
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -18,6 +34,18 @@ function statusClass(status) {
   return "fail";
 }
 
+function artifactHref(runId, artifactName) {
+  return `/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifactName)}`;
+}
+
+function listArtifacts(runId, runDir) {
+  return ARTIFACT_FILES.map((name) => ({
+    name,
+    exists: existsSync(join(runDir, name)),
+    href: artifactHref(runId, name),
+  }));
+}
+
 export async function loadConsoleState(root = process.cwd()) {
   const projectRoot = resolve(root);
   const status = await getStatus(projectRoot);
@@ -29,6 +57,7 @@ export async function loadConsoleState(root = process.cwd()) {
       ...run,
       runDir,
       finalGate: await finalGate(runDir),
+      artifacts: listArtifacts(run.id, runDir),
     });
   }
 
@@ -42,6 +71,23 @@ export async function loadConsoleState(root = process.cwd()) {
   };
 }
 
+export async function loadArtifactContent(root = process.cwd(), runId, artifactName) {
+  if (!ARTIFACT_FILES.includes(artifactName)) {
+    throw new Error(`Unknown artifact: ${artifactName}`);
+  }
+  const runDir = resolveRunDir(resolve(root), runId);
+  const path = join(runDir, artifactName);
+  if (!existsSync(path)) {
+    throw new Error(`Artifact not found: ${artifactName}`);
+  }
+  return {
+    runId,
+    artifactName,
+    path,
+    content: await readFile(path, "utf8"),
+  };
+}
+
 export function renderConsoleHtml(state) {
   const rows = state.runs
     .map((run) => {
@@ -50,12 +96,19 @@ export function renderConsoleHtml(state) {
       const gaps = run.finalGate?.gaps || [];
       const invalid = run.finalGate?.invalid || [];
       const issues = [...missing.map((item) => `missing: ${item}`), ...gaps.map((item) => `gap: ${item}`), ...invalid.map((item) => `invalid: ${item}`)];
+      const artifactLinks = (run.artifacts || [])
+        .filter((artifact) => artifact.exists)
+        .map((artifact) => `<a href="${escapeHtml(artifact.href)}">${escapeHtml(artifact.name)}</a>`)
+        .join("");
       return `<tr>
         <td><code>${escapeHtml(run.id)}</code></td>
         <td>${escapeHtml(run.title)}</td>
         <td><span class="pill">${escapeHtml(run.stage)}</span></td>
         <td><span class="gate ${statusClass(gateStatus)}">${escapeHtml(gateStatus)}</span></td>
-        <td>${issues.length ? escapeHtml(issues.join(", ")) : "ready"}</td>
+        <td>
+          <div>${issues.length ? escapeHtml(issues.join(", ")) : "ready"}</div>
+          <div class="artifacts">${artifactLinks || "no artifacts"}</div>
+        </td>
       </tr>`;
     })
     .join("");
@@ -182,6 +235,21 @@ export function renderConsoleHtml(state) {
       background: #fce8e6;
       color: var(--fail);
     }
+    .artifacts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      margin-top: 8px;
+    }
+    .artifacts a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      font-size: 12px;
+    }
+    .artifacts a:hover {
+      border-bottom-color: currentColor;
+    }
     .empty {
       color: var(--muted);
       padding: 28px 12px;
@@ -238,6 +306,16 @@ export function createConsoleServer(options = {}) {
         const state = await loadConsoleState(root);
         response.writeHead(200, { "content-type": "application/json; charset=utf-8" });
         response.end(`${JSON.stringify(state, null, 2)}\n`);
+        return;
+      }
+
+      const artifactMatch = request.url?.match(/^\/runs\/([^/]+)\/artifacts\/([^/?#]+)$/);
+      if (artifactMatch) {
+        const runId = decodeURIComponent(artifactMatch[1]);
+        const artifactName = decodeURIComponent(artifactMatch[2]);
+        const artifact = await loadArtifactContent(root, runId, artifactName);
+        response.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+        response.end(artifact.content);
         return;
       }
 

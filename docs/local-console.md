@@ -36,6 +36,8 @@ The first console version shows:
 - stage
 - final gate status
 - missing evidence, gaps, or invalid artifacts
+- links to local run artifacts
+- test plan and verification evidence access
 
 ## API
 
@@ -43,9 +45,28 @@ The console exposes one local JSON endpoint:
 
 ```text
 GET /api/state
+GET /runs/:runId/artifacts/:artifactName
 ```
 
-The response includes the project root, privacy boundary, and run state.
+`/api/state` includes the project root, privacy boundary, run state, final gate state, and artifact metadata.
+
+The artifact route can read known local run artifacts such as:
+
+```text
+intake.md
+grill.md
+facts.md
+TECH_SPEC.md
+subtasks.json
+test_plan.md
+verification.md
+archive.md
+final_report.md
+memory_capture.md
+final_gate.json
+```
+
+Unknown artifact names are rejected instead of being treated as arbitrary paths.
 
 ## Privacy Boundary
 

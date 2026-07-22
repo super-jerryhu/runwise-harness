@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 
-import { createConsoleServer, renderConsoleHtml, loadConsoleState } from "../src/index.js";
+import { createConsoleServer, loadArtifactContent, renderConsoleHtml, loadConsoleState } from "../src/index.js";
 import { recordArchiveGap, recordVerification, startRun } from "../../core/src/index.js";
 
 const cli = resolve("packages/cli/bin/runwise.js");
@@ -29,6 +29,7 @@ test("loadConsoleState returns local run progress and gate state", async () => {
     notes: "console state verification",
   });
   await recordArchiveGap(started.runDir, "local-only console test");
+  await writeFile(join(started.runDir, "TECH_SPEC.md"), "# TECH_SPEC\n\nConsole design details.\n", "utf8");
 
   const state = await loadConsoleState(root);
 
@@ -40,6 +41,9 @@ test("loadConsoleState returns local run progress and gate state", async () => {
   assert.equal(state.runs[0].stage, "intake");
   assert.equal(state.runs[0].finalGate.status, "pass_with_gaps");
   assert.deepEqual(state.runs[0].finalGate.gaps, ["archive"]);
+  assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "TECH_SPEC.md" && artifact.exists));
+  assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "verification.md" && artifact.exists));
+  assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "test_plan.md" && artifact.exists));
 });
 
 test("renderConsoleHtml includes run list, progress, and local-first boundary", async () => {
@@ -52,6 +56,10 @@ test("renderConsoleHtml includes run list, progress, and local-first boundary", 
         title: "Console <flow>",
         stage: "testing",
         finalGate: { status: "pass_with_gaps", missing: [], gaps: ["archive"], invalid: [] },
+        artifacts: [
+          { name: "TECH_SPEC.md", exists: true, href: "/runs/20260722-111000-console-flow/artifacts/TECH_SPEC.md" },
+          { name: "verification.md", exists: true, href: "/runs/20260722-111000-console-flow/artifacts/verification.md" },
+        ],
       },
     ],
   });
@@ -60,7 +68,23 @@ test("renderConsoleHtml includes run list, progress, and local-first boundary", 
   assert.match(html, /Console &lt;flow&gt;/);
   assert.match(html, /testing/);
   assert.match(html, /pass_with_gaps/);
+  assert.match(html, /TECH_SPEC\.md/);
+  assert.match(html, /verification\.md/);
   assert.match(html, /source upload: false/i);
+});
+
+test("loadArtifactContent reads only known local run artifacts", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-console-artifact-"));
+  const started = await startRun(root, {
+    title: "Artifact flow",
+    now: "2026-07-22T11:12:00Z",
+  });
+  await writeFile(join(started.runDir, "TECH_SPEC.md"), "# TECH_SPEC\n\nArtifact detail.\n", "utf8");
+
+  const artifact = await loadArtifactContent(root, "20260722-111200-artifact-flow", "TECH_SPEC.md");
+
+  assert.equal(artifact.content, "# TECH_SPEC\n\nArtifact detail.\n");
+  await assert.rejects(() => loadArtifactContent(root, "20260722-111200-artifact-flow", "../run.yaml"), /Unknown artifact/);
 });
 
 test("createConsoleServer serves HTML and API state locally", async () => {
@@ -80,6 +104,11 @@ test("createConsoleServer serves HTML and API state locally", async () => {
 
     const state = await fetch(`http://127.0.0.1:${address.port}/api/state`).then((response) => response.json());
     assert.equal(state.runs[0].id, "20260722-111100-serve-console");
+
+    const artifact = await fetch(
+      `http://127.0.0.1:${address.port}/runs/20260722-111100-serve-console/artifacts/intake.md`,
+    ).then((response) => response.text());
+    assert.match(artifact, /Task: Serve console/);
   } finally {
     await new Promise((resolveClose) => server.close(resolveClose));
   }
