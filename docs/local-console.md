@@ -34,6 +34,8 @@ The first console version shows:
 - run list
 - requirement title
 - stage and stage progress
+- inferred grill type
+- grill question and answer progress
 - final gate status
 - missing evidence, gaps, or invalid artifacts
 - final gate blockers

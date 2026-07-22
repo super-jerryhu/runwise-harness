@@ -83,12 +83,45 @@ function blockersForGate(gate = {}) {
   ];
 }
 
-function nextActionForGate(gate = {}) {
+async function loadGrillInsight(runDir) {
+  const path = join(runDir, "grill.md");
+  if (!existsSync(path)) {
+    return { type: "unknown", questionCount: 0, answerCount: 0, answered: false };
+  }
+
+  const content = await readFile(path, "utf8");
+  const type = content.match(/^Type:\s*(.+)$/m)?.[1]?.trim() || "generic";
+  const questionRows = content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("| GRILL-"));
+  const tableAnswerCount = questionRows.filter((line) => {
+    const cells = line
+      .split("|")
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+    return Boolean(cells[3]);
+  }).length;
+  const qaAnswerCount = (content.match(/^A:\s*\S.+$/gm) || []).length;
+  const answerCount = tableAnswerCount + qaAnswerCount;
+
+  return {
+    type,
+    questionCount: questionRows.length,
+    answerCount,
+    answered: answerCount > 0,
+  };
+}
+
+function nextActionForGate(gate = {}, grill = {}) {
   const missing = gate.missing || [];
   const gaps = gate.gaps || [];
   const invalid = gate.invalid || [];
   if (invalid.includes("test_run_failed")) return "Fix failing tests, rerun test-run, then run final gate.";
   if (invalid.length > 0) return `Fix invalid artifact: ${invalid[0]}.`;
+  if (missing.includes("grill_evidence") && grill.questionCount > 0) {
+    return `Answer at least one of ${grill.questionCount} grill questions with runwise grill.`;
+  }
   if (missing.includes("grill_evidence")) return "Record demand-grill evidence with runwise grill.";
   if (missing.includes("verification_evidence")) return "Record verification evidence or run test-run.";
   if (missing.includes("test_cases")) return "Generate or write test cases in test_plan.md.";
@@ -107,13 +140,15 @@ export async function loadConsoleState(root = process.cwd()) {
   for (const run of status.runs) {
     const runDir = resolveRunDir(projectRoot, run.id);
     const gate = await finalGate(runDir);
+    const grill = await loadGrillInsight(runDir);
     runs.push({
       ...run,
       runDir,
+      grill,
       finalGate: gate,
       progress: progressForStage(run.stage),
       blockers: blockersForGate(gate),
-      nextAction: nextActionForGate(gate),
+      nextAction: nextActionForGate(gate, grill),
       artifacts: listArtifacts(run.id, runDir),
     });
   }
@@ -154,6 +189,7 @@ export function renderConsoleHtml(state) {
       const invalid = run.finalGate?.invalid || [];
       const issues = run.blockers || [...missing.map((item) => `missing: ${item}`), ...gaps.map((item) => `gap: ${item}`), ...invalid.map((item) => `invalid: ${item}`)];
       const progress = run.progress || progressForStage(run.stage);
+      const grill = run.grill || { type: "unknown", questionCount: 0, answerCount: 0, answered: false };
       const artifactLinks = (run.artifacts || [])
         .filter((artifact) => artifact.exists)
         .map((artifact) => `<a href="${escapeHtml(artifact.href)}">${escapeHtml(artifact.name)}</a>`)
@@ -168,17 +204,21 @@ export function renderConsoleHtml(state) {
           </div>
           <div class="progress-label">${escapeHtml(progress.percent)}% ${escapeHtml(progress.label)}</div>
         </td>
+        <td>
+          <span class="pill">${escapeHtml(grill.type)}</span>
+          <div class="progress-label">${escapeHtml(grill.answerCount)}/${escapeHtml(grill.questionCount)} answered</div>
+        </td>
         <td><span class="gate ${statusClass(gateStatus)}">${escapeHtml(gateStatus)}</span></td>
         <td>
           <div>${issues.length ? escapeHtml(issues.join(", ")) : "ready"}</div>
-          <div class="next-action">${escapeHtml(run.nextAction || nextActionForGate(run.finalGate))}</div>
+          <div class="next-action">${escapeHtml(run.nextAction || nextActionForGate(run.finalGate, grill))}</div>
           <div class="artifacts">${artifactLinks || "no artifacts"}</div>
         </td>
       </tr>`;
     })
     .join("");
 
-  const empty = `<tr><td colspan="5" class="empty">No Runwise runs found. Start one with <code>runwise start "Requirement title"</code>.</td></tr>`;
+  const empty = `<tr><td colspan="6" class="empty">No Runwise runs found. Start one with <code>runwise start "Requirement title"</code>.</td></tr>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -366,6 +406,7 @@ export function renderConsoleHtml(state) {
           <th>Run</th>
           <th>Requirement</th>
           <th>Stage</th>
+          <th>Grill</th>
           <th>Final Gate</th>
           <th>Evidence</th>
         </tr>
