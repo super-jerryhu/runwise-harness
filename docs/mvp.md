@@ -118,6 +118,9 @@ The scanner should detect:
 - likely test commands
 - ignored paths
 - docs files
+- API hints
+- DB/schema/migration hints
+- service/module hints
 
 It should not upload anything.
 
@@ -148,6 +151,20 @@ The MVP is useful if:
 - Final gate can block premature completion.
 - The workflow is clear enough to build Pi and Codex adapters on top.
 
+## Fixture Coverage
+
+The MVP should include fixture projects that prove scanner behavior without relying only on temporary files.
+
+The first fixture is `fixtures/basic-node`, which covers:
+
+- package manager and scripts
+- docs discovery
+- API hints
+- service hints
+- DB migration hints
+- `.env` exclusion
+- `node_modules` exclusion
+
 ## MVP Validation Scenario
 
 Use a small fixture repository.
@@ -160,4 +177,3 @@ Use a small fixture repository.
 6. Record verification evidence.
 7. Run `runwise final-gate <run-id>`.
 8. Confirm the result is deterministic.
-

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { cp } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 
@@ -72,4 +73,23 @@ test("CLI can record test planning, verification, and archive gaps for final gat
   const gate = run(["final-gate", "20260722-100300-add-verified-flow"], root);
   assert.equal(gate.status, 0, gate.stdout);
   assert.match(gate.stdout, /pass_with_gaps/);
+});
+
+test("CLI scan emits fixture project metadata without private file contents", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-cli-scan-"));
+  await cp(resolve("fixtures/basic-node"), root, { recursive: true });
+
+  assert.equal(run(["init", "--name", "fixture"], root).status, 0);
+  const scan = run(["scan"], root);
+
+  assert.equal(scan.status, 0, scan.stderr);
+  const payload = JSON.parse(scan.stdout);
+  assert.equal(payload.packageManager, "npm");
+  assert.deepEqual(payload.scripts, ["build", "test"]);
+  assert.ok(payload.apiHints.includes("docs/api.md"));
+  assert.ok(payload.apiHints.includes("src/api/routes.js"));
+  assert.deepEqual(payload.dbHints, ["db/migrations/001_init.sql"]);
+  assert.deepEqual(payload.serviceHints, ["src/services/orders.js"]);
+  assert.ok(payload.excludedPaths.includes(".env"));
+  assert.ok(!scan.stdout.includes("SHOULD_NOT_BE_SCANNED"));
 });

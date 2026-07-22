@@ -1,0 +1,12 @@
+{
+  "name": "basic-node-fixture",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "build": "node build.js"
+  },
+  "dependencies": {
+    "express": "1.0.0"
+  }
+}
+

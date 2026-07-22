@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -73,6 +73,38 @@ test("scanProject records local metadata and does not require source upload", as
   assert.match(overview, /package manager: npm/);
 });
 
+test("scanProject recursively detects docs, service hints, api hints, db hints, and excludes private paths", async () => {
+  const root = await tempRepo();
+  await writeFile(
+    join(root, "package.json"),
+    JSON.stringify({ scripts: { test: "vitest" }, dependencies: { next: "1.0.0" } }),
+  );
+  await mkdir(join(root, "docs"), { recursive: true });
+  await mkdir(join(root, "src", "api"), { recursive: true });
+  await mkdir(join(root, "src", "services", "billing"), { recursive: true });
+  await mkdir(join(root, "db", "migrations"), { recursive: true });
+  await mkdir(join(root, "node_modules", "secret-package"), { recursive: true });
+  await mkdir(join(root, ".runwise", "old"), { recursive: true });
+  await writeFile(join(root, "docs", "architecture.md"), "# Architecture\n");
+  await writeFile(join(root, "src", "api", "routes.js"), "export const routes = [];\n");
+  await writeFile(join(root, "src", "services", "billing", "index.js"), "export function bill() {}\n");
+  await writeFile(join(root, "db", "migrations", "001.sql"), "select 1;\n");
+  await writeFile(join(root, ".env"), "SECRET=1\n");
+  await writeFile(join(root, "node_modules", "secret-package", "README.md"), "# Ignore me\n");
+  await writeFile(join(root, ".runwise", "old", "note.md"), "# Ignore me\n");
+
+  const result = await scanProject(root);
+
+  assert.deepEqual(result.docs, ["docs/architecture.md"]);
+  assert.deepEqual(result.apiHints, ["src/api/routes.js"]);
+  assert.deepEqual(result.dbHints, ["db/migrations/001.sql"]);
+  assert.deepEqual(result.serviceHints, ["src/services/billing/index.js"]);
+  assert.ok(result.excludedPaths.includes(".env"));
+  assert.ok(!JSON.stringify(result).includes("SECRET=1"));
+  assert.ok(!JSON.stringify(result).includes("secret-package"));
+  assert.ok(!JSON.stringify(result).includes(".runwise/old"));
+});
+
 test("finalGate fails when verification evidence is missing and passes with explicit gaps", async () => {
   const root = await tempRepo();
   await initProject(root, { name: "demo" });
@@ -92,3 +124,33 @@ test("finalGate fails when verification evidence is missing and passes with expl
   assert.equal(passingWithGaps.status, "pass_with_gaps");
 });
 
+test("finalGate validates structured subtasks and test plan artifacts", async () => {
+  const root = await tempRepo();
+  await initProject(root, { name: "demo" });
+  const { runDir } = await startRun(root, {
+    title: "Add structured gate",
+    now: new Date("2026-07-22T10:04:00Z"),
+  });
+  await writeFile(join(runDir, "verification.md"), "# Verification\n\n- Command recorded: npm test\n- Exit code: 0\n");
+  await writeFile(join(runDir, "archive.md"), "# Archive\n\n- Local archive recorded.\n");
+  await writeFile(join(runDir, "subtasks.json"), "{ bad json");
+
+  const invalidJson = await finalGate(runDir);
+  assert.equal(invalidJson.status, "fail");
+  assert.ok(invalidJson.invalid.includes("subtasks.json"));
+
+  await writeFile(join(runDir, "subtasks.json"), JSON.stringify({ task: "x", subtasks: "not-array" }));
+  const invalidShape = await finalGate(runDir);
+  assert.equal(invalidShape.status, "fail");
+  assert.ok(invalidShape.invalid.includes("subtasks.json"));
+
+  await writeFile(join(runDir, "subtasks.json"), JSON.stringify({ task: "x", subtasks: [] }));
+  await writeFile(join(runDir, "test_plan.md"), "# Test Plan\n\nNo cases yet.\n");
+  const missingCases = await finalGate(runDir);
+  assert.equal(missingCases.status, "fail");
+  assert.ok(missingCases.missing.includes("test_cases"));
+
+  await writeFile(join(runDir, "test_plan.md"), "# Test Plan\n\n| TC-001 | basic | acceptance_criteria | | unit | npm test | pending |\n");
+  const passing = await finalGate(runDir);
+  assert.equal(passing.status, "pass");
+});
