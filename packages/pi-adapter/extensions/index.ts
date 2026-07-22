@@ -76,6 +76,22 @@ export default function runwisePiAdapter(pi: ExtensionAPI) {
     },
   });
 
+  pi.registerCommand("runwise-test-plan", {
+    description: "Generate a Runwise test plan for a requirement run",
+    handler: async (args, ctx) => {
+      const result = await runRunwise(["test-plan", args.trim(), "--generate"], ctx.cwd);
+      ctx.ui.notify(result.stdout || result.stderr, result.code === 0 ? "info" : "warning");
+    },
+  });
+
+  pi.registerCommand("runwise-test-run", {
+    description: "Execute Runwise test plan commands and record evidence",
+    handler: async (args, ctx) => {
+      const result = await runRunwise(["test-run", args.trim(), "--json"], ctx.cwd);
+      ctx.ui.notify(result.stdout || result.stderr, result.code === 0 ? "info" : "warning");
+    },
+  });
+
   pi.registerCommand("runwise-final-gate", {
     description: "Run Runwise final gate for a requirement run",
     handler: async (args, ctx) => {
@@ -103,6 +119,30 @@ export default function runwisePiAdapter(pi: ExtensionAPI) {
     parameters: Type.Object({}),
     async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
       return textResult(await runRunwise(["status", "--json"], ctx.cwd));
+    },
+  });
+
+  pi.registerTool({
+    name: "runwise_generate_test_plan",
+    label: "Runwise Generate Test Plan",
+    description: "Generate local Runwise test cases from scanner metadata for a requirement run.",
+    parameters: Type.Object({
+      runId: Type.String({ description: "Runwise run id" }),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      return textResult(await runRunwise(["test-plan", params.runId, "--generate"], ctx.cwd));
+    },
+  });
+
+  pi.registerTool({
+    name: "runwise_execute_test_run",
+    label: "Runwise Execute Test Run",
+    description: "Execute commands from a local Runwise test plan and record verification evidence.",
+    parameters: Type.Object({
+      runId: Type.String({ description: "Runwise run id" }),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      return textResult(await runRunwise(["test-run", params.runId, "--json"], ctx.cwd));
     },
   });
 
@@ -138,4 +178,3 @@ export default function runwisePiAdapter(pi: ExtensionAPI) {
     },
   });
 }
-

@@ -37,6 +37,8 @@ The extension registers:
 /runwise-scan
 /runwise-start <requirement title>
 /runwise-status
+/runwise-test-plan <run-id>
+/runwise-test-run <run-id>
 /runwise-final-gate <run-id>
 ```
 
@@ -47,6 +49,8 @@ The extension registers LLM-callable tools:
 ```text
 runwise_create_run
 runwise_get_status
+runwise_generate_test_plan
+runwise_execute_test_run
 runwise_record_verification
 runwise_final_gate
 ```
@@ -56,4 +60,3 @@ runwise_final_gate
 The adapter uses the local CLI and writes local artifacts under `.runwise/`.
 
 It must not upload source code, secrets, logs, embeddings, or traces by default.
-
