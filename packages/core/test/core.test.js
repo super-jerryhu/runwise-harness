@@ -10,6 +10,7 @@ import {
   initProject,
   scanProject,
   startRun,
+  updateRunStage,
 } from "../src/index.js";
 
 async function tempRepo() {
@@ -184,4 +185,19 @@ test("generateTestPlan creates executable cases from local scan scripts", async 
   assert.match(plan, /npm test/);
   assert.match(plan, /TC-002/);
   assert.match(plan, /npm run build/);
+});
+
+test("updateRunStage updates run.yaml with a valid workflow stage", async () => {
+  const root = await tempRepo();
+  const { runDir } = await startRun(root, {
+    title: "Update stage",
+    now: new Date("2026-07-22T12:04:00Z"),
+  });
+
+  const result = await updateRunStage(runDir, "testing");
+
+  assert.equal(result.stage, "testing");
+  const runYaml = await readFile(join(runDir, "run.yaml"), "utf8");
+  assert.match(runYaml, /^stage: testing$/m);
+  await assert.rejects(() => updateRunStage(runDir, "random-stage"), /Invalid stage/);
 });

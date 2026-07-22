@@ -37,6 +37,7 @@ The extension registers:
 /runwise-scan
 /runwise-start <requirement title>
 /runwise-status
+/runwise-stage <run-id> <stage>
 /runwise-test-plan <run-id>
 /runwise-test-run <run-id>
 /runwise-final-gate <run-id>
@@ -49,6 +50,7 @@ The extension registers LLM-callable tools:
 ```text
 runwise_create_run
 runwise_get_status
+runwise_update_stage
 runwise_generate_test_plan
 runwise_execute_test_run
 runwise_record_verification

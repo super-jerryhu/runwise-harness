@@ -103,6 +103,36 @@ Use `--json` for machine-readable output:
 node packages/cli/bin/runwise.js status --json
 ```
 
+### `runwise stage`
+
+Update a run's workflow stage for progress tracking.
+
+```bash
+node packages/cli/bin/runwise.js stage <run-id> testing
+```
+
+Use JSON output for adapters:
+
+```bash
+node packages/cli/bin/runwise.js stage <run-id> testing --json
+```
+
+Valid stages:
+
+```text
+intake
+grill
+context
+design
+implementation
+test_plan
+testing
+final_gate
+archive
+memory
+done
+```
+
 ### `runwise test-plan`
 
 Print the path to a run's test plan artifact.

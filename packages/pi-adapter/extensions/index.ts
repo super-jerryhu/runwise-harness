@@ -76,6 +76,15 @@ export default function runwisePiAdapter(pi: ExtensionAPI) {
     },
   });
 
+  pi.registerCommand("runwise-stage", {
+    description: "Update a Runwise run workflow stage",
+    handler: async (args, ctx) => {
+      const [runId = "", stage = ""] = args.trim().split(/\s+/, 2);
+      const result = await runRunwise(["stage", runId, stage, "--json"], ctx.cwd);
+      ctx.ui.notify(result.stdout || result.stderr, result.code === 0 ? "info" : "warning");
+    },
+  });
+
   pi.registerCommand("runwise-test-plan", {
     description: "Generate a Runwise test plan for a requirement run",
     handler: async (args, ctx) => {
@@ -119,6 +128,19 @@ export default function runwisePiAdapter(pi: ExtensionAPI) {
     parameters: Type.Object({}),
     async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
       return textResult(await runRunwise(["status", "--json"], ctx.cwd));
+    },
+  });
+
+  pi.registerTool({
+    name: "runwise_update_stage",
+    label: "Runwise Update Stage",
+    description: "Update the workflow stage for a local Runwise requirement run.",
+    parameters: Type.Object({
+      runId: Type.String({ description: "Runwise run id" }),
+      stage: Type.String({ description: "Workflow stage" }),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      return textResult(await runRunwise(["stage", params.runId, params.stage, "--json"], ctx.cwd));
     },
   });
 

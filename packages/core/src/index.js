@@ -16,6 +16,20 @@ const RUN_FILES = [
   "memory_capture.md",
 ];
 
+const WORKFLOW_STAGES = new Set([
+  "intake",
+  "grill",
+  "context",
+  "design",
+  "implementation",
+  "test_plan",
+  "testing",
+  "final_gate",
+  "archive",
+  "memory",
+  "done",
+]);
+
 function pad(value) {
   return String(value).padStart(2, "0");
 }
@@ -130,6 +144,20 @@ export async function startRun(root = process.cwd(), options = {}) {
   }
 
   return { runId, runDir };
+}
+
+export async function updateRunStage(runDir, stage) {
+  if (!WORKFLOW_STAGES.has(stage)) {
+    throw new Error(`Invalid stage: ${stage}`);
+  }
+  const root = resolve(runDir);
+  const runYamlPath = join(root, "run.yaml");
+  const runYaml = await readFile(runYamlPath, "utf8");
+  const nextYaml = /^stage:\s*.+$/m.test(runYaml)
+    ? runYaml.replace(/^stage:\s*.+$/m, `stage: ${stage}`)
+    : `${runYaml.trimEnd()}\nstage: ${stage}\n`;
+  await writeFile(runYamlPath, nextYaml.endsWith("\n") ? nextYaml : `${nextYaml}\n`, "utf8");
+  return { runDir: root, stage };
 }
 
 function detectPackageManager(root) {

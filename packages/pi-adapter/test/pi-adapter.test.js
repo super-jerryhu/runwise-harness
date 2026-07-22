@@ -20,6 +20,7 @@ test("Pi adapter extension exposes Runwise commands and tools", async () => {
     "runwise-scan",
     "runwise-start",
     "runwise-status",
+    "runwise-stage",
     "runwise-test-plan",
     "runwise-test-run",
     "runwise-final-gate",
@@ -30,6 +31,7 @@ test("Pi adapter extension exposes Runwise commands and tools", async () => {
   for (const tool of [
     "runwise_create_run",
     "runwise_get_status",
+    "runwise_update_stage",
     "runwise_generate_test_plan",
     "runwise_execute_test_run",
     "runwise_record_verification",
