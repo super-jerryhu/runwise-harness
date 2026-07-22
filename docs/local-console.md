@@ -33,9 +33,11 @@ The first console version shows:
 - final gate status counts
 - run list
 - requirement title
-- stage
+- stage and stage progress
 - final gate status
 - missing evidence, gaps, or invalid artifacts
+- final gate blockers
+- next action guidance
 - links to local run artifacts
 - test plan and verification evidence access
 
@@ -48,7 +50,7 @@ GET /api/state
 GET /runs/:runId/artifacts/:artifactName
 ```
 
-`/api/state` includes the project root, privacy boundary, run state, final gate state, and artifact metadata.
+`/api/state` includes the project root, privacy boundary, run state, stage progress, final gate state, blocker summaries, next action guidance, and artifact metadata.
 
 The artifact route can read known local run artifacts such as:
 

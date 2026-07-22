@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { test } from "node:test";
 
 import { createConsoleServer, loadArtifactContent, renderConsoleHtml, loadConsoleState } from "../src/index.js";
-import { recordArchiveGap, recordVerification, startRun } from "../../core/src/index.js";
+import { recordArchiveGap, recordVerification, startRun, updateRunStage } from "../../core/src/index.js";
 
 const cli = resolve("packages/cli/bin/runwise.js");
 
@@ -31,6 +31,7 @@ test("loadConsoleState returns local run progress and gate state", async () => {
   await recordArchiveGap(started.runDir, "local-only console test");
   await writeFile(join(started.runDir, "TECH_SPEC.md"), "# TECH_SPEC\n\nConsole design details.\n", "utf8");
   await writeFile(join(started.runDir, "test_run.json"), `${JSON.stringify({ status: "pass", results: [] })}\n`, "utf8");
+  await updateRunStage(started.runDir, "testing");
 
   const state = await loadConsoleState(root);
 
@@ -39,9 +40,13 @@ test("loadConsoleState returns local run progress and gate state", async () => {
   assert.equal(state.runs.length, 1);
   assert.equal(state.runs[0].id, "20260722-111000-console-flow");
   assert.equal(state.runs[0].title, "Console flow");
-  assert.equal(state.runs[0].stage, "intake");
+  assert.equal(state.runs[0].stage, "testing");
   assert.equal(state.runs[0].finalGate.status, "pass_with_gaps");
   assert.deepEqual(state.runs[0].finalGate.gaps, ["archive"]);
+  assert.equal(state.runs[0].progress.currentIndex, 6);
+  assert.equal(state.runs[0].progress.total, 11);
+  assert.match(state.runs[0].nextAction, /archive/i);
+  assert.deepEqual(state.runs[0].blockers, ["gap: archive"]);
   assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "TECH_SPEC.md" && artifact.exists));
   assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "verification.md" && artifact.exists));
   assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "test_plan.md" && artifact.exists));
@@ -57,6 +62,9 @@ test("renderConsoleHtml includes run list, progress, and local-first boundary", 
         id: "20260722-111000-console-flow",
         title: "Console <flow>",
         stage: "testing",
+        progress: { currentIndex: 6, total: 11, percent: 55, label: "Testing" },
+        nextAction: "Review archive gap or record canonical archive link.",
+        blockers: ["gap: archive"],
         finalGate: { status: "pass_with_gaps", missing: [], gaps: ["archive"], invalid: [] },
         artifacts: [
           { name: "TECH_SPEC.md", exists: true, href: "/runs/20260722-111000-console-flow/artifacts/TECH_SPEC.md" },
@@ -69,6 +77,9 @@ test("renderConsoleHtml includes run list, progress, and local-first boundary", 
   assert.match(html, /Runwise Console/);
   assert.match(html, /Console &lt;flow&gt;/);
   assert.match(html, /testing/);
+  assert.match(html, /55%/);
+  assert.match(html, /Review archive gap/);
+  assert.match(html, /gap: archive/);
   assert.match(html, /pass_with_gaps/);
   assert.match(html, /TECH_SPEC\.md/);
   assert.match(html, /verification\.md/);

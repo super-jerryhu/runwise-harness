@@ -170,6 +170,8 @@ Deliverables:
 - run list
 - run detail
 - stage progress
+- blocker summaries
+- next action guidance
 - artifact viewer
 - test evidence view
 - local JSON state API
