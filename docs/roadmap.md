@@ -150,6 +150,7 @@ Deliverables:
 - CLI bridge
 - run lifecycle guidance
 - final gate usage
+- local-first privacy boundary
 
 Exit criteria:
 
