@@ -1,0 +1,29 @@
+rules:
+  - id: PRIVACY-001
+    title: Source code upload must be explicit
+    risk: privacy
+    severity: critical
+    description: Do not upload source code, code snippets, embeddings, logs, or detailed traces unless the selected privacy mode explicitly allows it.
+    required:
+      - explicit_privacy_mode
+      - sync_audit_event
+
+  - id: SECRETS-001
+    title: Secrets must never be synced
+    risk: secret_handling
+    severity: critical
+    description: Exclude .env files, private keys, tokens, credentials, database dumps, and production logs by default.
+    required:
+      - denylist_check
+      - secret_scan
+
+  - id: FINAL-GATE-001
+    title: Agent completion requires evidence
+    risk: verification
+    severity: high
+    description: Agents must not claim completion without verification evidence or an explicit verification gap.
+    required:
+      - test_plan
+      - verification_evidence
+      - final_report
+

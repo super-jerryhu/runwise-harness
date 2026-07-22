@@ -1,0 +1,20 @@
+{
+  "name": "runwise-harness",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-first agent engineering harness for AI coding workflows",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "bin": {
+    "runwise": "./packages/cli/bin/runwise.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

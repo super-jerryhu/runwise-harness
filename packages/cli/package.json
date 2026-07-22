@@ -1,0 +1,11 @@
+{
+  "name": "@runwise/cli",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Command-line interface for Runwise Harness",
+  "license": "Apache-2.0",
+  "bin": {
+    "runwise": "./bin/runwise.js"
+  }
+}
+

@@ -1,0 +1,12 @@
+{
+  "name": "@runwise/harness-core",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Core workflow model and local final gate for Runwise Harness",
+  "license": "Apache-2.0",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  }
+}
+
