@@ -140,6 +140,8 @@ Run targeted tests and record exact evidence:
 
 An agent should not self-certify success without evidence.
 
+When `test_run.json` exists, failed or invalid test-run evidence blocks the final gate.
+
 ### 9. Final Gate
 
 The final gate decides whether the run can be marked complete.

@@ -299,6 +299,24 @@ async function validateTestPlan(runRoot, missing) {
   }
 }
 
+async function validateTestRun(runRoot, invalid) {
+  const path = join(runRoot, "test_run.json");
+  if (!existsSync(path)) return;
+  try {
+    const parsed = JSON.parse(await readFile(path, "utf8"));
+    if (parsed.status !== "pass") invalid.push("test_run_failed");
+    if (!Array.isArray(parsed.results)) {
+      invalid.push("test_run.json");
+      return;
+    }
+    if (parsed.results.some((result) => result.exitCode !== 0 || result.status === "failed")) {
+      invalid.push("test_run_failed");
+    }
+  } catch {
+    invalid.push("test_run.json");
+  }
+}
+
 export async function finalGate(runDir) {
   const root = resolve(runDir);
   const missing = [];
@@ -334,6 +352,7 @@ export async function finalGate(runDir) {
 
   await validateSubtasks(root, invalid);
   await validateTestPlan(root, missing);
+  await validateTestRun(root, invalid);
 
   let status = "pass";
   if (missing.length > 0 || invalid.length > 0) status = "fail";
