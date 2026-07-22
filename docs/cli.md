@@ -56,7 +56,7 @@ excludedPaths
 privacy
 ```
 
-The scanner recursively walks the project while excluding high-noise and private paths such as `.git`, `.runwise`, `node_modules`, build outputs, coverage outputs, and `.env`.
+The scanner recursively walks the project while excluding high-noise and private paths such as `.git`, `.runwise`, `node_modules`, `privity`, build outputs, coverage outputs, and `.env`.
 
 ### `runwise start`
 

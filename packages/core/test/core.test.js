@@ -86,6 +86,7 @@ test("scanProject recursively detects docs, service hints, api hints, db hints, 
   await mkdir(join(root, "db", "migrations"), { recursive: true });
   await mkdir(join(root, "node_modules", "secret-package"), { recursive: true });
   await mkdir(join(root, ".runwise", "old"), { recursive: true });
+  await mkdir(join(root, "privity", "notes"), { recursive: true });
   await writeFile(join(root, "docs", "architecture.md"), "# Architecture\n");
   await writeFile(join(root, "src", "api", "routes.js"), "export const routes = [];\n");
   await writeFile(join(root, "src", "services", "billing", "index.js"), "export function bill() {}\n");
@@ -93,6 +94,7 @@ test("scanProject recursively detects docs, service hints, api hints, db hints, 
   await writeFile(join(root, ".env"), "SECRET=1\n");
   await writeFile(join(root, "node_modules", "secret-package", "README.md"), "# Ignore me\n");
   await writeFile(join(root, ".runwise", "old", "note.md"), "# Ignore me\n");
+  await writeFile(join(root, "privity", "notes", "private.md"), "# Private notes\n");
 
   const result = await scanProject(root);
 
@@ -101,7 +103,10 @@ test("scanProject recursively detects docs, service hints, api hints, db hints, 
   assert.deepEqual(result.dbHints, ["db/migrations/001.sql"]);
   assert.deepEqual(result.serviceHints, ["src/services/billing/index.js"]);
   assert.ok(result.excludedPaths.includes(".env"));
+  assert.ok(result.excludedPaths.includes("privity"));
   assert.ok(!JSON.stringify(result).includes("SECRET=1"));
+  assert.ok(!JSON.stringify(result).includes("Private notes"));
+  assert.ok(!JSON.stringify(result).includes("privity/notes"));
   assert.ok(!JSON.stringify(result).includes("secret-package"));
   assert.ok(!JSON.stringify(result).includes(".runwise/old"));
 });

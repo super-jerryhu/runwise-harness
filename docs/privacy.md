@@ -4,6 +4,8 @@ Runwise should be local-first by default.
 
 The local runner or agent adapter scans the user's repository on the user's machine. Cloud sync is optional and should be explicit.
 
+Private local planning folders such as `privity/` are excluded from scanner metadata by default.
+
 ## Default Promise
 
 ```text
@@ -124,4 +126,3 @@ Runwise should provide:
 - workspace and project permissions
 - log redaction
 - data export and deletion
-
