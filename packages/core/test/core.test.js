@@ -6,6 +6,7 @@ import { test } from "node:test";
 
 import {
   finalGate,
+  generateGrillQuestions,
   generateTestPlan,
   initProject,
   recordArchiveLink,
@@ -240,6 +241,40 @@ test("recordGrillAnswer stores demand clarification evidence for final gate", as
   await writeFile(join(runDir, "archive.md"), "# Archive\n\n- Local archive recorded.\n");
   const gate = await finalGate(runDir);
   assert.equal(gate.status, "pass");
+});
+
+test("generateGrillQuestions writes targeted questions without satisfying final gate evidence", async () => {
+  const root = await tempRepo();
+  const { runDir } = await startRun(root, {
+    title: "Add backend billing workflow",
+    now: new Date("2026-07-22T12:08:00Z"),
+  });
+
+  const result = await generateGrillQuestions(root, runDir, { type: "backend" });
+
+  assert.equal(result.path, join(runDir, "grill.md"));
+  assert.equal(result.type, "backend");
+  assert.ok(result.questions.length >= 6);
+  assert.ok(result.questions.some((question) => /business outcome/i.test(question.text)));
+  assert.ok(result.questions.some((question) => /data invariant/i.test(question.text)));
+
+  const grill = await readFile(join(runDir, "grill.md"), "utf8");
+  assert.match(grill, /## Generated Questions/);
+  assert.match(grill, /GRILL-001/);
+  assert.match(grill, /backend/);
+
+  await writeFile(join(runDir, "verification.md"), "# Verification\n\n- Command recorded: npm test\n- Exit code: 0\n");
+  await writeFile(join(runDir, "archive.md"), "# Archive\n\n- Local archive recorded.\n");
+  const unansweredGate = await finalGate(runDir);
+  assert.equal(unansweredGate.status, "fail");
+  assert.ok(unansweredGate.missing.includes("grill_evidence"));
+
+  await recordGrillAnswer(runDir, {
+    question: result.questions[0].text,
+    answer: "Reduce manual billing review time for operators.",
+  });
+  const answeredGate = await finalGate(runDir);
+  assert.equal(answeredGate.status, "pass");
 });
 
 test("generateTestPlan creates executable cases from local scan scripts", async () => {

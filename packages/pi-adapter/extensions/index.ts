@@ -85,6 +85,15 @@ export default function runwisePiAdapter(pi: ExtensionAPI) {
     },
   });
 
+  pi.registerCommand("runwise-grill-plan", {
+    description: "Generate targeted Runwise demand-grill questions",
+    handler: async (args, ctx) => {
+      const [runId = "", type = "generic"] = args.trim().split(/\s+/, 2);
+      const result = await runRunwise(["grill", runId, "--generate", "--type", type], ctx.cwd);
+      ctx.ui.notify(result.stdout || result.stderr, result.code === 0 ? "info" : "warning");
+    },
+  });
+
   pi.registerCommand("runwise-grill", {
     description: "Record a Runwise demand-grill question and answer",
     handler: async (args, ctx) => {
@@ -164,6 +173,21 @@ export default function runwisePiAdapter(pi: ExtensionAPI) {
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return textResult(await runRunwise(["stage", params.runId, params.stage, "--json"], ctx.cwd));
+    },
+  });
+
+  pi.registerTool({
+    name: "runwise_generate_grill_questions",
+    label: "Runwise Generate Grill Questions",
+    description: "Generate targeted demand-grill questions for a local Runwise run.",
+    parameters: Type.Object({
+      runId: Type.String({ description: "Runwise run id" }),
+      type: Type.Optional(Type.String({ description: "Requirement type: generic, backend, frontend, data, or ops" })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      return textResult(
+        await runRunwise(["grill", params.runId, "--generate", "--type", params.type ?? "generic"], ctx.cwd),
+      );
     },
   });
 

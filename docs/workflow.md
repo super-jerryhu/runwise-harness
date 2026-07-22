@@ -66,7 +66,7 @@ Common question areas:
 - rollback needs
 - verification expectations
 
-Record answered demand questions with `runwise grill <run-id> --question <question> --answer <answer>`. The final gate treats an empty grill template as missing demand evidence.
+Generate a targeted question list with `runwise grill <run-id> --generate --type <generic|backend|frontend|data|ops>`, then record answered demand questions with `runwise grill <run-id> --question <question> --answer <answer>`. The final gate treats an empty grill template or unanswered generated question list as missing demand evidence.
 
 ### 3. Context Alignment
 

@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import {
   artifactPath,
   finalGate,
+  generateGrillQuestions,
   generateTestPlan,
   getStatus,
   parseTestPlanCommands,
@@ -39,6 +40,7 @@ Usage:
   runwise start <title> [--now <iso-date>] [--json]
   runwise status [--json]
   runwise stage <run-id-or-dir> <stage> [--json]
+  runwise grill <run-id-or-dir> --generate [--type <generic|backend|frontend|data|ops>]
   runwise grill <run-id-or-dir> --question <question> --answer <answer>
   runwise test-plan <run-id-or-dir> [--generate]
   runwise test-run <run-id-or-dir> [--json]
@@ -120,6 +122,13 @@ async function main(argv) {
   if (command === "grill") {
     const target = args[0];
     if (!target) throw new Error("grill requires a run id or run directory");
+    if (hasFlag(args, "--generate")) {
+      const result = await generateGrillQuestions(process.cwd(), target, {
+        type: parseOption(args, "--type"),
+      });
+      console.log(`Generated ${result.questions.length} ${result.type} grill questions: ${result.path}`);
+      return 0;
+    }
     const result = await recordGrillAnswer(resolveRunDir(process.cwd(), target), {
       question: parseOption(args, "--question"),
       answer: parseOption(args, "--answer"),
