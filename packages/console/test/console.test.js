@@ -5,7 +5,13 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 
-import { createConsoleServer, loadArtifactContent, renderConsoleHtml, loadConsoleState } from "../src/index.js";
+import {
+  createConsoleServer,
+  loadArtifactContent,
+  renderConsoleHtml,
+  renderRunDetailHtml,
+  loadConsoleState,
+} from "../src/index.js";
 import {
   recordArchiveGap,
   recordArchiveLink,
@@ -186,6 +192,7 @@ test("renderConsoleHtml includes run list, progress, and local-first boundary", 
 
   assert.match(html, /Runwise Console/);
   assert.match(html, /Console &lt;flow&gt;/);
+  assert.match(html, /\/runs\/20260722-111000-console-flow/);
   assert.match(html, /testing/);
   assert.match(html, /55%/);
   assert.match(html, /backend/);
@@ -222,6 +229,44 @@ test("renderConsoleHtml does not label archive evidence without a URL as a link"
 
   assert.match(html, /archive recorded/i);
   assert.doesNotMatch(html, /archive link/i);
+});
+
+test("renderRunDetailHtml shows one run with insights and artifact links", async () => {
+  const html = renderRunDetailHtml({
+    projectRoot: "/workspace/demo",
+    privacy: { sourceUpload: false, mode: "local_only" },
+    run: {
+      id: "20260722-111700-detail-flow",
+      title: "Detail <flow>",
+      stage: "testing",
+      progress: { currentIndex: 6, total: 11, percent: 55, label: "Testing" },
+      grill: { type: "backend", questionCount: 8, answerCount: 3, answered: true },
+      testPlan: { exists: true, generated: true, caseCount: 4, automatedCount: 3, manualCount: 1 },
+      testRun: { exists: true, status: "fail", total: 4, passed: 3, failed: 1 },
+      archive: { exists: true, status: "linked", url: "https://linear.app/demo/issue/ENG-123/detail-flow" },
+      memory: { exists: true, captured: true },
+      nextAction: "Fix failing tests, rerun test-run, then run final gate.",
+      blockers: ["invalid: test_run_failed"],
+      finalGate: { status: "fail", missing: [], gaps: [], invalid: ["test_run_failed"] },
+      artifacts: [
+        { name: "TECH_SPEC.md", exists: true, href: "/runs/20260722-111700-detail-flow/artifacts/TECH_SPEC.md" },
+        { name: "test_run.json", exists: true, href: "/runs/20260722-111700-detail-flow/artifacts/test_run.json" },
+      ],
+    },
+  });
+
+  assert.match(html, /Run Detail/);
+  assert.match(html, /Detail &lt;flow&gt;/);
+  assert.match(html, /backend/);
+  assert.match(html, /3\/8 answered/);
+  assert.match(html, /4 cases/);
+  assert.match(html, /fail 1\/4/);
+  assert.match(html, /archive link/);
+  assert.match(html, /memory captured/);
+  assert.match(html, /Fix failing tests/);
+  assert.match(html, /TECH_SPEC\.md/);
+  assert.match(html, /test_run\.json/);
+  assert.match(html, /Back to runs/);
 });
 
 test("loadConsoleState reports missing and invalid test run evidence without crashing", async () => {
@@ -298,6 +343,13 @@ test("createConsoleServer serves HTML and API state locally", async () => {
 
     const state = await fetch(`http://127.0.0.1:${address.port}/api/state`).then((response) => response.json());
     assert.equal(state.runs[0].id, "20260722-111100-serve-console");
+
+    const detail = await fetch(`http://127.0.0.1:${address.port}/runs/20260722-111100-serve-console`).then((response) =>
+      response.text(),
+    );
+    assert.match(detail, /Run Detail/);
+    assert.match(detail, /Serve console/);
+    assert.match(detail, /Back to runs/);
 
     const artifact = await fetch(
       `http://127.0.0.1:${address.port}/runs/20260722-111100-serve-console/artifacts/intake.md`,

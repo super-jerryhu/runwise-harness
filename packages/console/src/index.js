@@ -241,6 +241,17 @@ function formatMemorySummary(memory) {
   return "memory captured";
 }
 
+function defaultRunInsights(run = {}) {
+  return {
+    progress: run.progress || progressForStage(run.stage),
+    grill: run.grill || { type: "unknown", questionCount: 0, answerCount: 0, answered: false },
+    testPlan: run.testPlan || { exists: false, generated: false, caseCount: 0, automatedCount: 0, manualCount: 0 },
+    testRun: run.testRun || { exists: false, status: "missing", total: 0, passed: 0, failed: 0 },
+    archive: run.archive || { exists: false, status: "missing", url: undefined },
+    memory: run.memory || { exists: false, captured: false },
+  };
+}
+
 function nextActionForGate(gate = {}, grill = {}) {
   const missing = gate.missing || [];
   const gaps = gate.gaps || [];
@@ -324,12 +335,7 @@ export function renderConsoleHtml(state) {
       const gaps = run.finalGate?.gaps || [];
       const invalid = run.finalGate?.invalid || [];
       const issues = run.blockers || [...missing.map((item) => `missing: ${item}`), ...gaps.map((item) => `gap: ${item}`), ...invalid.map((item) => `invalid: ${item}`)];
-      const progress = run.progress || progressForStage(run.stage);
-      const grill = run.grill || { type: "unknown", questionCount: 0, answerCount: 0, answered: false };
-      const testPlan = run.testPlan || { exists: false, generated: false, caseCount: 0, automatedCount: 0, manualCount: 0 };
-      const testRun = run.testRun || { exists: false, status: "missing", total: 0, passed: 0, failed: 0 };
-      const archive = run.archive || { exists: false, status: "missing", url: undefined };
-      const memory = run.memory || { exists: false, captured: false };
+      const { progress, grill, testPlan, testRun, archive, memory } = defaultRunInsights(run);
       const archiveSummary = archive.url
         ? `<a href="${escapeHtml(archive.url)}">${escapeHtml(formatArchiveSummary(archive))}</a>`
         : escapeHtml(formatArchiveSummary(archive));
@@ -337,9 +343,10 @@ export function renderConsoleHtml(state) {
         .filter((artifact) => artifact.exists)
         .map((artifact) => `<a href="${escapeHtml(artifact.href)}">${escapeHtml(artifact.name)}</a>`)
         .join("");
+      const runHref = `/runs/${encodeURIComponent(run.id)}`;
       return `<tr>
-        <td><code>${escapeHtml(run.id)}</code></td>
-        <td>${escapeHtml(run.title)}</td>
+        <td><a href="${escapeHtml(runHref)}"><code>${escapeHtml(run.id)}</code></a></td>
+        <td><a href="${escapeHtml(runHref)}">${escapeHtml(run.title)}</a></td>
         <td>
           <span class="pill">${escapeHtml(run.stage)}</span>
           <div class="progress" aria-label="${escapeHtml(progress.label)} progress">
@@ -577,6 +584,109 @@ export function renderConsoleHtml(state) {
 </html>`;
 }
 
+function metric(label, value) {
+  return `<div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`;
+}
+
+export function renderRunDetailHtml(state) {
+  const run = state.run;
+  const gateStatus = run.finalGate?.status || "unknown";
+  const issues = run.blockers || blockersForGate(run.finalGate);
+  const { progress, grill, testPlan, testRun, archive, memory } = defaultRunInsights(run);
+  const archiveSummary = archive.url
+    ? `<a href="${escapeHtml(archive.url)}">${escapeHtml(formatArchiveSummary(archive))}</a>`
+    : escapeHtml(formatArchiveSummary(archive));
+  const artifactLinks = (run.artifacts || [])
+    .filter((artifact) => artifact.exists)
+    .map((artifact) => `<a href="${escapeHtml(artifact.href)}">${escapeHtml(artifact.name)}</a>`)
+    .join("");
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run Detail - ${escapeHtml(run.title)}</title>
+  <style>
+    body { margin: 0; background: #f8fafd; color: #202124; font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    header { border-bottom: 1px solid #dadce0; background: #fff; padding: 18px 24px; }
+    main { max-width: 1040px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: 0; }
+    a { color: #0b57d0; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+    .meta, .muted { color: #5f6368; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 18px 0; }
+    .metric, .section { background: #fff; border: 1px solid #dadce0; border-radius: 8px; padding: 14px; }
+    .metric strong { display: block; font-size: 20px; line-height: 1.2; }
+    .metric span { color: #5f6368; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+    .section h2 { margin: 0 0 10px; font-size: 15px; }
+    .pill { display: inline-flex; align-items: center; min-height: 24px; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 650; background: #e8f0fe; color: #0b57d0; }
+    .gate { display: inline-flex; align-items: center; min-height: 24px; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 650; background: #fce8e6; color: #b3261e; }
+    .gate.ok { background: #e6f4ea; color: #137333; }
+    .gate.warn { background: #fef7e0; color: #b06000; }
+    .artifacts { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+    .line { margin-top: 6px; color: #5f6368; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/">Back to runs</a>
+    <h1>Run Detail</h1>
+    <div class="meta"><code>${escapeHtml(run.id)}</code> · ${escapeHtml(run.title)} · ${escapeHtml(state.privacy?.mode || "local_only")}</div>
+  </header>
+  <main>
+    <section class="summary" aria-label="Run detail summary">
+      ${metric("stage", `${progress.percent}% ${progress.label}`)}
+      ${metric("grill", `${grill.answerCount}/${grill.questionCount} answered`)}
+      ${metric("test plan", `${testPlan.caseCount} ${testPlan.caseCount === 1 ? "case" : "cases"}`)}
+      ${metric("test run", formatTestRunSummary(testRun))}
+      ${metric("final gate", gateStatus)}
+    </section>
+    <section class="grid">
+      <div class="section">
+        <h2>Grill</h2>
+        <span class="pill">${escapeHtml(grill.type)}</span>
+        <div class="line">${escapeHtml(grill.answerCount)}/${escapeHtml(grill.questionCount)} answered</div>
+      </div>
+      <div class="section">
+        <h2>Test Plan</h2>
+        <div>${escapeHtml(testPlan.caseCount)} cases</div>
+        <div class="line">${escapeHtml(testPlan.automatedCount)} automated · ${escapeHtml(testPlan.manualCount)} manual</div>
+      </div>
+      <div class="section">
+        <h2>Test Run</h2>
+        <span class="gate ${statusClass(testRun.status)}">${escapeHtml(formatTestRunSummary(testRun))}</span>
+        <div class="line">${escapeHtml(testRun.passed)} passed · ${escapeHtml(testRun.failed)} failed</div>
+      </div>
+      <div class="section">
+        <h2>Final Gate</h2>
+        <span class="gate ${statusClass(gateStatus)}">${escapeHtml(gateStatus)}</span>
+        <div class="line">${issues.length ? escapeHtml(issues.join(", ")) : "ready"}</div>
+      </div>
+      <div class="section">
+        <h2>Archive</h2>
+        <div>${archiveSummary}</div>
+      </div>
+      <div class="section">
+        <h2>Memory</h2>
+        <div>${escapeHtml(formatMemorySummary(memory))}</div>
+      </div>
+    </section>
+    <section class="section" style="margin-top: 12px;">
+      <h2>Next Action</h2>
+      <div>${escapeHtml(run.nextAction || nextActionForGate(run.finalGate, grill))}</div>
+    </section>
+    <section class="section" style="margin-top: 12px;">
+      <h2>Artifacts</h2>
+      <div class="artifacts">${artifactLinks || "no artifacts"}</div>
+    </section>
+  </main>
+</body>
+</html>`;
+}
+
 export function createConsoleServer(options = {}) {
   const root = options.root || process.cwd();
 
@@ -596,6 +706,21 @@ export function createConsoleServer(options = {}) {
         const artifact = await loadArtifactContent(root, runId, artifactName);
         response.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
         response.end(artifact.content);
+        return;
+      }
+
+      const runMatch = request.url?.match(/^\/runs\/([^/?#]+)$/);
+      if (runMatch) {
+        const runId = decodeURIComponent(runMatch[1]);
+        const state = await loadConsoleState(root);
+        const run = state.runs.find((item) => item.id === runId);
+        if (!run) {
+          response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+          response.end("Run not found\n");
+          return;
+        }
+        response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        response.end(renderRunDetailHtml({ ...state, run }));
         return;
       }
 
