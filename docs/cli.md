@@ -111,6 +111,17 @@ Print the path to a run's test plan artifact.
 node packages/cli/bin/runwise.js test-plan <run-id>
 ```
 
+Generate a basic test plan from local scanner metadata:
+
+```bash
+node packages/cli/bin/runwise.js scan
+node packages/cli/bin/runwise.js test-plan <run-id> --generate
+```
+
+The generated plan uses local package scripts such as `test`, `build`, and `lint`.
+
+This command does not execute tests. It creates the cases that a human or agent should run and then record with `runwise verify`.
+
 ### `runwise verify`
 
 Record verification evidence.

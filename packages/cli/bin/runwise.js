@@ -2,6 +2,7 @@
 import {
   artifactPath,
   finalGate,
+  generateTestPlan,
   getStatus,
   initProject,
   recordArchiveGap,
@@ -31,7 +32,7 @@ Usage:
   runwise scan
   runwise start <title> [--now <iso-date>] [--json]
   runwise status [--json]
-  runwise test-plan <run-id-or-dir>
+  runwise test-plan <run-id-or-dir> [--generate]
   runwise verify <run-id-or-dir> --command <command> [--exit-code <code>] [--notes <notes>]
   runwise archive-gap <run-id-or-dir> --reason <reason>
   runwise final-gate <run-id-or-dir> [--write-report]
@@ -96,6 +97,11 @@ async function main(argv) {
   if (command === "test-plan") {
     const target = args[0];
     if (!target) throw new Error("test-plan requires a run id or run directory");
+    if (hasFlag(args, "--generate")) {
+      const result = await generateTestPlan(process.cwd(), target);
+      console.log(`Generated ${result.cases.length} test cases: ${result.path}`);
+      return 0;
+    }
     const path = artifactPath(resolveRunDir(process.cwd(), target), "test_plan.md");
     console.log(path);
     return 0;

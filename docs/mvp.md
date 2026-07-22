@@ -150,6 +150,7 @@ The MVP is useful if:
 - A requirement run produces reusable artifacts.
 - Final gate can block premature completion.
 - The workflow is clear enough to build Pi and Codex adapters on top.
+- The test-plan flow can generate baseline cases from local project metadata.
 
 ## Fixture Coverage
 

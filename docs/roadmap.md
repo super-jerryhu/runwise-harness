@@ -108,6 +108,7 @@ Goal: make testing a first-class workflow stage.
 Deliverables:
 
 - test plan artifact schema
+- local test case generation from scanner metadata
 - test result artifact schema
 - command result capture
 - verification gap recording

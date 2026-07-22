@@ -372,6 +372,90 @@ export async function recordArchiveGap(runDir, reason) {
   return { path };
 }
 
+function commandForScript(packageManager, script) {
+  if (script === "test") return `${packageManager} test`;
+  if (packageManager === "npm") return `npm run ${script}`;
+  return `${packageManager} ${script}`;
+}
+
+function titleForScript(script) {
+  if (script === "test") return "Run automated test suite";
+  if (script === "build") return "Run build verification";
+  if (script === "lint") return "Run lint verification";
+  return `Run ${script} script`;
+}
+
+function formatTestCases(cases) {
+  return cases
+    .map((testCase) =>
+      [
+        `| ${testCase.id}`,
+        testCase.title,
+        testCase.source,
+        testCase.risk,
+        testCase.type,
+        testCase.command,
+        testCase.status,
+        "|",
+      ].join(" | "),
+    )
+    .join("\n");
+}
+
+export async function generateTestPlan(root = process.cwd(), runIdOrDir) {
+  if (!runIdOrDir) throw new Error("generateTestPlan requires a run id or run directory");
+  const projectRoot = resolve(root);
+  const runDir = resolveRunDir(projectRoot, runIdOrDir);
+  let scan = await readJsonIfExists(join(projectRoot, RUNWISE_DIR, "scan.json"));
+  if (!scan) scan = await scanProject(projectRoot);
+
+  const packageManager = scan.packageManager === "unknown" ? "npm" : scan.packageManager;
+  const scripts = Array.isArray(scan.scripts) ? scan.scripts : [];
+  const preferredScripts = ["test", "build", "lint"].filter((script) => scripts.includes(script));
+  const selectedScripts = preferredScripts.length ? preferredScripts : scripts.slice(0, 3);
+  const cases = selectedScripts.map((script, index) => ({
+    id: `TC-${String(index + 1).padStart(3, "0")}`,
+    title: titleForScript(script),
+    source: "local_scan_scripts",
+    risk: script === "test" ? "regression" : "release",
+    type: "automated",
+    command: commandForScript(packageManager, script),
+    status: "pending",
+  }));
+
+  if (cases.length === 0) {
+    cases.push({
+      id: "TC-001",
+      title: "Define manual verification for this requirement",
+      source: "requirement_review",
+      risk: "unknown",
+      type: "manual",
+      command: "",
+      status: "pending",
+    });
+  }
+
+  const content = [
+    "# Test Plan",
+    "",
+    "Generated from local Runwise scan metadata.",
+    "",
+    "## Test Cases",
+    "",
+    "| ID | Title | Source | Risk | Type | Command | Status |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+    formatTestCases(cases),
+    "",
+    "## Execution",
+    "",
+    "Run the listed commands, then record evidence with `runwise verify`.",
+    "",
+  ].join("\n");
+  const path = join(runDir, "test_plan.md");
+  await writeFile(path, content, "utf8");
+  return { path, cases };
+}
+
 export async function getStatus(root = process.cwd()) {
   const runsDir = join(resolve(root), RUNWISE_DIR, "runs");
   if (!existsSync(runsDir)) return { runs: [] };
