@@ -153,6 +153,7 @@ The MVP is useful if:
 - The test-plan flow can generate baseline cases from local project metadata.
 - The verification flow can execute generated local test commands and persist evidence.
 - Failed `test_run.json` evidence blocks final gate completion.
+- The local console can show stage progress, blockers, and next action guidance.
 
 ## Fixture Coverage
 

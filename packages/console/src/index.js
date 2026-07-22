@@ -20,6 +20,20 @@ const ARTIFACT_FILES = [
   "final_gate.json",
 ];
 
+const WORKFLOW_STAGES = [
+  { id: "intake", label: "Intake" },
+  { id: "grill", label: "Grill" },
+  { id: "context", label: "Context" },
+  { id: "design", label: "Design" },
+  { id: "implementation", label: "Implementation" },
+  { id: "test_plan", label: "Test Plan" },
+  { id: "testing", label: "Testing" },
+  { id: "final_gate", label: "Final Gate" },
+  { id: "archive", label: "Archive" },
+  { id: "memory", label: "Memory" },
+  { id: "done", label: "Done" },
+];
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -47,6 +61,43 @@ function listArtifacts(runId, runDir) {
   }));
 }
 
+function progressForStage(stage) {
+  const index = Math.max(
+    0,
+    WORKFLOW_STAGES.findIndex((item) => item.id === stage),
+  );
+  const current = WORKFLOW_STAGES[index] || WORKFLOW_STAGES[0];
+  return {
+    currentIndex: index,
+    total: WORKFLOW_STAGES.length,
+    percent: Math.round((index / WORKFLOW_STAGES.length) * 100),
+    label: current.label,
+  };
+}
+
+function blockersForGate(gate = {}) {
+  return [
+    ...(gate.missing || []).map((item) => `missing: ${item}`),
+    ...(gate.gaps || []).map((item) => `gap: ${item}`),
+    ...(gate.invalid || []).map((item) => `invalid: ${item}`),
+  ];
+}
+
+function nextActionForGate(gate = {}) {
+  const missing = gate.missing || [];
+  const gaps = gate.gaps || [];
+  const invalid = gate.invalid || [];
+  if (invalid.includes("test_run_failed")) return "Fix failing tests, rerun test-run, then run final gate.";
+  if (invalid.length > 0) return `Fix invalid artifact: ${invalid[0]}.`;
+  if (missing.includes("verification_evidence")) return "Record verification evidence or run test-run.";
+  if (missing.includes("test_cases")) return "Generate or write test cases in test_plan.md.";
+  if (missing.length > 0) return `Complete missing artifact: ${missing[0]}.`;
+  if (gaps.includes("archive")) return "Review archive gap or record canonical archive link.";
+  if (gaps.length > 0) return `Resolve or accept gap: ${gaps[0]}.`;
+  if (gate.status === "pass") return "Ready for archive, memory capture, or done stage.";
+  return "Run final gate and review blockers.";
+}
+
 export async function loadConsoleState(root = process.cwd()) {
   const projectRoot = resolve(root);
   const status = await getStatus(projectRoot);
@@ -54,10 +105,14 @@ export async function loadConsoleState(root = process.cwd()) {
 
   for (const run of status.runs) {
     const runDir = resolveRunDir(projectRoot, run.id);
+    const gate = await finalGate(runDir);
     runs.push({
       ...run,
       runDir,
-      finalGate: await finalGate(runDir),
+      finalGate: gate,
+      progress: progressForStage(run.stage),
+      blockers: blockersForGate(gate),
+      nextAction: nextActionForGate(gate),
       artifacts: listArtifacts(run.id, runDir),
     });
   }
@@ -96,7 +151,8 @@ export function renderConsoleHtml(state) {
       const missing = run.finalGate?.missing || [];
       const gaps = run.finalGate?.gaps || [];
       const invalid = run.finalGate?.invalid || [];
-      const issues = [...missing.map((item) => `missing: ${item}`), ...gaps.map((item) => `gap: ${item}`), ...invalid.map((item) => `invalid: ${item}`)];
+      const issues = run.blockers || [...missing.map((item) => `missing: ${item}`), ...gaps.map((item) => `gap: ${item}`), ...invalid.map((item) => `invalid: ${item}`)];
+      const progress = run.progress || progressForStage(run.stage);
       const artifactLinks = (run.artifacts || [])
         .filter((artifact) => artifact.exists)
         .map((artifact) => `<a href="${escapeHtml(artifact.href)}">${escapeHtml(artifact.name)}</a>`)
@@ -104,10 +160,17 @@ export function renderConsoleHtml(state) {
       return `<tr>
         <td><code>${escapeHtml(run.id)}</code></td>
         <td>${escapeHtml(run.title)}</td>
-        <td><span class="pill">${escapeHtml(run.stage)}</span></td>
+        <td>
+          <span class="pill">${escapeHtml(run.stage)}</span>
+          <div class="progress" aria-label="${escapeHtml(progress.label)} progress">
+            <div class="progress-bar" style="width: ${escapeHtml(progress.percent)}%"></div>
+          </div>
+          <div class="progress-label">${escapeHtml(progress.percent)}% ${escapeHtml(progress.label)}</div>
+        </td>
         <td><span class="gate ${statusClass(gateStatus)}">${escapeHtml(gateStatus)}</span></td>
         <td>
           <div>${issues.length ? escapeHtml(issues.join(", ")) : "ready"}</div>
+          <div class="next-action">${escapeHtml(run.nextAction || nextActionForGate(run.finalGate))}</div>
           <div class="artifacts">${artifactLinks || "no artifacts"}</div>
         </td>
       </tr>`;
@@ -235,6 +298,23 @@ export function renderConsoleHtml(state) {
     .gate.fail {
       background: #fce8e6;
       color: var(--fail);
+    }
+    .progress {
+      width: 120px;
+      height: 6px;
+      border-radius: 999px;
+      background: #edf1f7;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+    }
+    .progress-label, .next-action {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 5px;
     }
     .artifacts {
       display: flex;
