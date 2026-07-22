@@ -126,9 +126,9 @@ Goal: support Pi as the first open-source agent runner.
 
 Deliverables:
 
-- Pi package
+- Pi package skeleton
 - Pi extension
-- `/runwise` commands
+- `/runwise-*` commands
 - LLM-callable Runwise tools
 - lifecycle hooks for status sync
 - local CLI bridge

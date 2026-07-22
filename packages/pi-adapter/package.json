@@ -1,0 +1,31 @@
+{
+  "name": "@runwise/harness-pi",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Pi package adapter for Runwise Harness",
+  "license": "Apache-2.0",
+  "keywords": [
+    "pi-package",
+    "runwise",
+    "agent-harness",
+    "coding-agent"
+  ],
+  "pi": {
+    "extensions": [
+      "extensions"
+    ],
+    "skills": [
+      "skills"
+    ],
+    "prompts": [
+      "prompts"
+    ]
+  },
+  "runwise": {
+    "runtime": "pi",
+    "requires": [
+      "runwise CLI on PATH",
+      "Pi runtime-provided @earendil-works/pi-coding-agent and typebox imports"
+    ]
+  }
+}
