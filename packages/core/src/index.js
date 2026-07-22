@@ -456,6 +456,76 @@ export async function generateTestPlan(root = process.cwd(), runIdOrDir) {
   return { path, cases };
 }
 
+export async function parseTestPlanCommands(runDir) {
+  const root = resolve(runDir);
+  const plan = await readFile(join(root, "test_plan.md"), "utf8");
+  const commands = [];
+  for (const line of plan.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("| TC-")) continue;
+    const cells = trimmed
+      .split("|")
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+    const [id, title, source, risk, type, command, status] = cells;
+    if (!id || !command) continue;
+    commands.push({ id, title, source, risk, type, command, status });
+  }
+  return commands;
+}
+
+function truncateOutput(value) {
+  const text = String(value || "");
+  if (text.length <= 4000) return text;
+  return `${text.slice(0, 4000)}\n[truncated]\n`;
+}
+
+export async function recordTestRunResults(runDir, results) {
+  const root = resolve(runDir);
+  const status = results.every((result) => result.exitCode === 0) ? "pass" : "fail";
+  const report = {
+    status,
+    generatedAt: new Date().toISOString(),
+    results: results.map((result) => ({
+      id: result.id,
+      title: result.title,
+      command: result.command,
+      exitCode: result.exitCode,
+      status: result.exitCode === 0 ? "passed" : "failed",
+      durationMs: result.durationMs,
+      stdout: truncateOutput(result.stdout),
+      stderr: truncateOutput(result.stderr),
+    })),
+  };
+  const reportPath = join(root, "test_run.json");
+  await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+
+  const verification = [
+    "# Verification",
+    "",
+    "## Commands",
+    "",
+    "| Test Case | Command | Exit Code | Result | Notes |",
+    "| --- | --- | ---: | --- | --- |",
+    ...report.results.map((result) =>
+      `| ${result.id} | ${result.command} | ${result.exitCode} | ${result.status} | ${result.title || ""} |`,
+    ),
+    "",
+    "## Evidence",
+    "",
+    ...report.results.flatMap((result) => [
+      `- ${result.id}: ${result.command}`,
+      `  - Result: ${result.status}`,
+      `  - Exit code: ${result.exitCode}`,
+    ]),
+    "",
+  ].join("\n");
+  const verificationPath = join(root, "verification.md");
+  await writeFile(verificationPath, verification, "utf8");
+
+  return { status, reportPath, verificationPath, results: report.results };
+}
+
 export async function getStatus(root = process.cwd()) {
   const runsDir = join(resolve(root), RUNWISE_DIR, "runs");
   if (!existsSync(runsDir)) return { runs: [] };

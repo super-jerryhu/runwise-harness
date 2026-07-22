@@ -151,6 +151,7 @@ The MVP is useful if:
 - Final gate can block premature completion.
 - The workflow is clear enough to build Pi and Codex adapters on top.
 - The test-plan flow can generate baseline cases from local project metadata.
+- The verification flow can execute generated local test commands and persist evidence.
 
 ## Fixture Coverage
 
