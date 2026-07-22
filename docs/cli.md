@@ -66,6 +66,12 @@ Create a requirement run.
 node packages/cli/bin/runwise.js start "Add a small feature"
 ```
 
+Use `--json` for adapter-friendly output:
+
+```bash
+node packages/cli/bin/runwise.js start "Add a small feature" --json
+```
+
 Creates:
 
 ```text
@@ -89,6 +95,12 @@ List local runs.
 
 ```bash
 node packages/cli/bin/runwise.js status
+```
+
+Use `--json` for machine-readable output:
+
+```bash
+node packages/cli/bin/runwise.js status --json
 ```
 
 ### `runwise test-plan`
@@ -125,6 +137,18 @@ Run deterministic completion checks.
 
 ```bash
 node packages/cli/bin/runwise.js final-gate <run-id>
+```
+
+Write a local report for adapters or follow-up tooling:
+
+```bash
+node packages/cli/bin/runwise.js final-gate <run-id> --write-report
+```
+
+Creates:
+
+```text
+.runwise/runs/<run-id>/final_gate.json
 ```
 
 Possible statuses:

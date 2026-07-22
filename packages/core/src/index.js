@@ -314,6 +314,17 @@ export async function finalGate(runDir) {
   return { status, missing, gaps, invalid };
 }
 
+export async function writeFinalGateReport(runDir, result) {
+  const root = resolve(runDir);
+  const report = {
+    ...result,
+    generatedAt: new Date().toISOString(),
+  };
+  const path = join(root, "final_gate.json");
+  await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  return { path, report };
+}
+
 export function artifactPath(runDir, artifactName) {
   return join(resolve(runDir), artifactName);
 }
