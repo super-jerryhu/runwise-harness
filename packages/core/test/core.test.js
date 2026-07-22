@@ -59,6 +59,34 @@ test("startRun creates a deterministic local run ledger from templates", async (
   }
 });
 
+test("startRun auto-generates grill questions from requirement title and scan metadata", async () => {
+  const root = await tempRepo();
+  await writeFile(
+    join(root, "package.json"),
+    JSON.stringify({ scripts: { test: "node --test" }, dependencies: { express: "1.0.0" } }),
+  );
+  await mkdir(join(root, "src", "api"), { recursive: true });
+  await writeFile(join(root, "src", "api", "billing.js"), "export function route() {}\n");
+  await scanProject(root);
+
+  const result = await startRun(root, {
+    title: "Add billing API retry guard",
+    now: new Date("2026-07-22T12:09:00Z"),
+  });
+
+  assert.equal(result.grill.type, "backend");
+  assert.ok(result.grill.questions.length >= 6);
+
+  const grill = await readFile(join(result.runDir, "grill.md"), "utf8");
+  assert.match(grill, /## Generated Questions/);
+  assert.match(grill, /Type: backend/);
+  assert.match(grill, /data invariant/i);
+
+  const gate = await finalGate(result.runDir);
+  assert.equal(gate.status, "fail");
+  assert.ok(gate.missing.includes("grill_evidence"));
+});
+
 test("scanProject records local metadata and does not require source upload", async () => {
   const root = await tempRepo();
   await writeFile(
