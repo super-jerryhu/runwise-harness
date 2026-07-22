@@ -6,6 +6,7 @@ import { test } from "node:test";
 
 import {
   finalGate,
+  generateTestPlan,
   initProject,
   scanProject,
   startRun,
@@ -153,4 +154,29 @@ test("finalGate validates structured subtasks and test plan artifacts", async ()
   await writeFile(join(runDir, "test_plan.md"), "# Test Plan\n\n| TC-001 | basic | acceptance_criteria | | unit | npm test | pending |\n");
   const passing = await finalGate(runDir);
   assert.equal(passing.status, "pass");
+});
+
+test("generateTestPlan creates executable cases from local scan scripts", async () => {
+  const root = await tempRepo();
+  await writeFile(
+    join(root, "package.json"),
+    JSON.stringify({ scripts: { test: "node --test", build: "node build.js" } }),
+  );
+  await scanProject(root);
+  const { runDir } = await startRun(root, {
+    title: "Generate test plan",
+    now: new Date("2026-07-22T12:00:00Z"),
+  });
+
+  const result = await generateTestPlan(root, runDir);
+
+  assert.equal(result.path, join(runDir, "test_plan.md"));
+  assert.deepEqual(result.cases.map((testCase) => testCase.id), ["TC-001", "TC-002"]);
+  assert.deepEqual(result.cases.map((testCase) => testCase.command), ["npm test", "npm run build"]);
+
+  const plan = await readFile(join(runDir, "test_plan.md"), "utf8");
+  assert.match(plan, /TC-001/);
+  assert.match(plan, /npm test/);
+  assert.match(plan, /TC-002/);
+  assert.match(plan, /npm run build/);
 });

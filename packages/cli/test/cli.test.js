@@ -75,6 +75,27 @@ test("CLI can record test planning, verification, and archive gaps for final gat
   assert.match(gate.stdout, /pass_with_gaps/);
 });
 
+test("CLI can generate a test plan from scanner output", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-cli-generate-tests-"));
+  await cp(resolve("fixtures/basic-node"), root, { recursive: true });
+
+  assert.equal(run(["scan"], root).status, 0);
+  assert.equal(run(["start", "Generate CLI tests", "--now", "2026-07-22T12:01:00Z"], root).status, 0);
+
+  const generated = run(["test-plan", "20260722-120100-generate-cli-tests", "--generate"], root);
+  assert.equal(generated.status, 0, generated.stderr);
+  assert.match(generated.stdout, /generated 2 test cases/i);
+
+  const plan = await readFile(
+    join(root, ".runwise", "runs", "20260722-120100-generate-cli-tests", "test_plan.md"),
+    "utf8",
+  );
+  assert.match(plan, /TC-001/);
+  assert.match(plan, /npm test/);
+  assert.match(plan, /TC-002/);
+  assert.match(plan, /npm run build/);
+});
+
 test("CLI scan emits fixture project metadata without private file contents", async () => {
   const root = await mkdtemp(join(tmpdir(), "runwise-cli-scan-"));
   await cp(resolve("fixtures/basic-node"), root, { recursive: true });
