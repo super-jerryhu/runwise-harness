@@ -30,6 +30,7 @@ test("loadConsoleState returns local run progress and gate state", async () => {
   });
   await recordArchiveGap(started.runDir, "local-only console test");
   await writeFile(join(started.runDir, "TECH_SPEC.md"), "# TECH_SPEC\n\nConsole design details.\n", "utf8");
+  await writeFile(join(started.runDir, "test_run.json"), `${JSON.stringify({ status: "pass", results: [] })}\n`, "utf8");
 
   const state = await loadConsoleState(root);
 
@@ -44,6 +45,7 @@ test("loadConsoleState returns local run progress and gate state", async () => {
   assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "TECH_SPEC.md" && artifact.exists));
   assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "verification.md" && artifact.exists));
   assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "test_plan.md" && artifact.exists));
+  assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "test_run.json" && artifact.exists));
 });
 
 test("renderConsoleHtml includes run list, progress, and local-first boundary", async () => {

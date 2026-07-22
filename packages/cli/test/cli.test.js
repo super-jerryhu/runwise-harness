@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { cp } from "node:fs/promises";
@@ -94,6 +94,71 @@ test("CLI can generate a test plan from scanner output", async () => {
   assert.match(plan, /npm test/);
   assert.match(plan, /TC-002/);
   assert.match(plan, /npm run build/);
+});
+
+test("CLI can execute generated test plan commands and record verification evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-cli-test-run-"));
+  await writeFile(
+    join(root, "package.json"),
+    JSON.stringify({
+      scripts: {
+        test: "node test.js",
+        build: "node build.js",
+      },
+    }),
+  );
+  await writeFile(join(root, "test.js"), "console.log('test ok');\n");
+  await writeFile(join(root, "build.js"), "console.log('build ok');\n");
+
+  assert.equal(run(["scan"], root).status, 0);
+  assert.equal(run(["start", "Execute test plan", "--now", "2026-07-22T12:02:00Z"], root).status, 0);
+  assert.equal(run(["test-plan", "20260722-120200-execute-test-plan", "--generate"], root).status, 0);
+
+  const executed = run(["test-run", "20260722-120200-execute-test-plan"], root);
+
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /passed 2\/2/i);
+
+  const runDir = join(root, ".runwise", "runs", "20260722-120200-execute-test-plan");
+  const verification = await readFile(join(runDir, "verification.md"), "utf8");
+  assert.match(verification, /npm test/);
+  assert.match(verification, /npm run build/);
+  assert.match(verification, /passed/);
+
+  const report = JSON.parse(await readFile(join(runDir, "test_run.json"), "utf8"));
+  assert.equal(report.status, "pass");
+  assert.deepEqual(report.results.map((result) => result.exitCode), [0, 0]);
+});
+
+test("CLI test-run returns failure and still records evidence when a command fails", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-cli-test-run-fail-"));
+  await writeFile(
+    join(root, "package.json"),
+    JSON.stringify({
+      scripts: {
+        test: "node fail.js",
+      },
+    }),
+  );
+  await writeFile(join(root, "fail.js"), "process.exit(7);\n");
+
+  assert.equal(run(["scan"], root).status, 0);
+  assert.equal(run(["start", "Failing test plan", "--now", "2026-07-22T12:03:00Z"], root).status, 0);
+  assert.equal(run(["test-plan", "20260722-120300-failing-test-plan", "--generate"], root).status, 0);
+
+  const executed = run(["test-run", "20260722-120300-failing-test-plan"], root);
+
+  assert.equal(executed.status, 1);
+  assert.match(executed.stdout, /failed 1\/1/i);
+
+  const runDir = join(root, ".runwise", "runs", "20260722-120300-failing-test-plan");
+  const verification = await readFile(join(runDir, "verification.md"), "utf8");
+  assert.match(verification, /npm test/);
+  assert.match(verification, /failed/);
+
+  const report = JSON.parse(await readFile(join(runDir, "test_run.json"), "utf8"));
+  assert.equal(report.status, "fail");
+  assert.equal(report.results[0].exitCode, 7);
 });
 
 test("CLI scan emits fixture project metadata without private file contents", async () => {

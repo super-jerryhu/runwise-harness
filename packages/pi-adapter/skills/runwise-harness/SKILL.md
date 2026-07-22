@@ -16,10 +16,11 @@ Runwise is local-first. Do not upload source code, secrets, logs, embeddings, or
 3. Align context against current files.
 4. Write or update design artifacts when the task is substantial or risky.
 5. Implement the scoped change.
-6. Record test plan and verification evidence.
-7. Run the deterministic final gate.
-8. Archive locally or record an archive gap.
-9. Capture reusable memory as a local artifact.
+6. Generate and run the test plan when local commands are available.
+7. Record verification evidence.
+8. Run the deterministic final gate.
+9. Archive locally or record an archive gap.
+10. Capture reusable memory as a local artifact.
 
 ## Commands
 
@@ -44,4 +45,3 @@ Runwise is local-first. Do not upload source code, secrets, logs, embeddings, or
 - Do not treat memory as source of truth.
 - Do not upload source code by default.
 - Record verification gaps explicitly.
-

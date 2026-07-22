@@ -122,6 +122,29 @@ The generated plan uses local package scripts such as `test`, `build`, and `lint
 
 This command does not execute tests. It creates the cases that a human or agent should run and then record with `runwise verify`.
 
+### `runwise test-run`
+
+Execute commands from a run's `test_plan.md` and record verification evidence.
+
+```bash
+node packages/cli/bin/runwise.js test-run <run-id>
+```
+
+Use JSON output for adapters:
+
+```bash
+node packages/cli/bin/runwise.js test-run <run-id> --json
+```
+
+This creates:
+
+```text
+.runwise/runs/<run-id>/test_run.json
+.runwise/runs/<run-id>/verification.md
+```
+
+`test-run` executes local shell commands from the `Command` column of `test_plan.md`. It exits with `0` only when all commands exit with `0`; it still records evidence when a command fails.
+
 ### `runwise verify`
 
 Record verification evidence.

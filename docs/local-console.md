@@ -60,6 +60,7 @@ TECH_SPEC.md
 subtasks.json
 test_plan.md
 verification.md
+test_run.json
 archive.md
 final_report.md
 memory_capture.md

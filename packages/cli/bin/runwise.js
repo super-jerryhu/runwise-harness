@@ -1,10 +1,13 @@
 #!/usr/bin/env node
+import { spawnSync } from "node:child_process";
 import {
   artifactPath,
   finalGate,
   generateTestPlan,
   getStatus,
+  parseTestPlanCommands,
   initProject,
+  recordTestRunResults,
   recordArchiveGap,
   recordVerification,
   resolveRunDir,
@@ -33,6 +36,7 @@ Usage:
   runwise start <title> [--now <iso-date>] [--json]
   runwise status [--json]
   runwise test-plan <run-id-or-dir> [--generate]
+  runwise test-run <run-id-or-dir> [--json]
   runwise verify <run-id-or-dir> --command <command> [--exit-code <code>] [--notes <notes>]
   runwise archive-gap <run-id-or-dir> --reason <reason>
   runwise final-gate <run-id-or-dir> [--write-report]
@@ -105,6 +109,43 @@ async function main(argv) {
     const path = artifactPath(resolveRunDir(process.cwd(), target), "test_plan.md");
     console.log(path);
     return 0;
+  }
+
+  if (command === "test-run") {
+    const target = args[0];
+    if (!target) throw new Error("test-run requires a run id or run directory");
+    const runDir = resolveRunDir(process.cwd(), target);
+    const commands = await parseTestPlanCommands(runDir);
+    if (commands.length === 0) throw new Error("test-run found no executable test plan commands");
+    const results = commands.map((testCase) => {
+      const startedAt = Date.now();
+      const execution = spawnSync(testCase.command, {
+        cwd: process.cwd(),
+        shell: true,
+        encoding: "utf8",
+        maxBuffer: 1024 * 1024,
+      });
+      return {
+        ...testCase,
+        exitCode: execution.status ?? 1,
+        durationMs: Date.now() - startedAt,
+        stdout: execution.stdout,
+        stderr: execution.stderr,
+      };
+    });
+    const report = await recordTestRunResults(runDir, results);
+    if (hasFlag(args, "--json")) {
+      console.log(JSON.stringify(report, null, 2));
+      return report.status === "pass" ? 0 : 1;
+    }
+    const passed = report.results.filter((result) => result.exitCode === 0).length;
+    const total = report.results.length;
+    if (report.status === "pass") {
+      console.log(`Test run passed ${passed}/${total}: ${report.reportPath}`);
+      return 0;
+    }
+    console.log(`Test run failed ${total - passed}/${total}: ${report.reportPath}`);
+    return report.status === "pass" ? 0 : 1;
   }
 
   if (command === "verify") {

@@ -109,6 +109,7 @@ Deliverables:
 
 - test plan artifact schema
 - local test case generation from scanner metadata
+- local test plan command execution
 - test result artifact schema
 - command result capture
 - verification gap recording
