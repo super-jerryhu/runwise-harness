@@ -1,0 +1,24 @@
+{
+  "name": "@runwise/harness-codex",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Codex skill adapter for Runwise Harness",
+  "license": "Apache-2.0",
+  "keywords": [
+    "codex",
+    "agent-skills",
+    "runwise",
+    "agent-harness"
+  ],
+  "runwise": {
+    "runtime": "codex",
+    "requires": [
+      "runwise CLI on PATH",
+      "local repository access"
+    ],
+    "skills": [
+      "skills/runwise-harness"
+    ]
+  }
+}
+
