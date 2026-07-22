@@ -152,6 +152,7 @@ The MVP is useful if:
 - The workflow is clear enough to build Pi and Codex adapters on top.
 - The test-plan flow can generate baseline cases from local project metadata.
 - The verification flow can execute generated local test commands and persist evidence.
+- Failed `test_run.json` evidence blocks final gate completion.
 
 ## Fixture Coverage
 

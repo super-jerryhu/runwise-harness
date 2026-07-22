@@ -162,6 +162,33 @@ test("finalGate validates structured subtasks and test plan artifacts", async ()
   assert.equal(passing.status, "pass");
 });
 
+test("finalGate blocks failed or invalid test run reports", async () => {
+  const root = await tempRepo();
+  await initProject(root, { name: "demo" });
+  const { runDir } = await startRun(root, {
+    title: "Gate test run",
+    now: new Date("2026-07-22T12:05:00Z"),
+  });
+  await writeFile(join(runDir, "archive.md"), "# Archive\n\n- Local archive recorded.\n");
+  await writeFile(join(runDir, "verification.md"), "# Verification\n\n- Command recorded: npm test\n- Exit code: 1\n");
+  await writeFile(
+    join(runDir, "test_run.json"),
+    JSON.stringify({
+      status: "fail",
+      results: [{ id: "TC-001", command: "npm test", exitCode: 1, status: "failed" }],
+    }),
+  );
+
+  const failedRun = await finalGate(runDir);
+  assert.equal(failedRun.status, "fail");
+  assert.ok(failedRun.invalid.includes("test_run_failed"));
+
+  await writeFile(join(runDir, "test_run.json"), "{ bad json");
+  const invalidRun = await finalGate(runDir);
+  assert.equal(invalidRun.status, "fail");
+  assert.ok(invalidRun.invalid.includes("test_run.json"));
+});
+
 test("generateTestPlan creates executable cases from local scan scripts", async () => {
   const root = await tempRepo();
   await writeFile(

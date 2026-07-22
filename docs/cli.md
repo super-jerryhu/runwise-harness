@@ -233,6 +233,7 @@ The MVP final gate validates:
 - archive evidence exists or an explicit gap is recorded
 - `subtasks.json` is valid JSON and contains a `subtasks` array
 - `test_plan.md` contains at least one `TC-###` test case
+- `test_run.json`, when present, is valid JSON and contains only passing results
 
 ### `runwise console`
 
