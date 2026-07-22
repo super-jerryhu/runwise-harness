@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 
 import { createConsoleServer, loadArtifactContent, renderConsoleHtml, loadConsoleState } from "../src/index.js";
-import { recordArchiveGap, recordGrillAnswer, recordVerification, startRun, updateRunStage } from "../../core/src/index.js";
+import {
+  recordArchiveGap,
+  recordArchiveLink,
+  recordGrillAnswer,
+  recordVerification,
+  startRun,
+  updateRunStage,
+} from "../../core/src/index.js";
 
 const cli = resolve("packages/cli/bin/runwise.js");
 
@@ -34,7 +41,33 @@ test("loadConsoleState returns local run progress and gate state", async () => {
   });
   await recordArchiveGap(started.runDir, "local-only console test");
   await writeFile(join(started.runDir, "TECH_SPEC.md"), "# TECH_SPEC\n\nConsole design details.\n", "utf8");
-  await writeFile(join(started.runDir, "test_run.json"), `${JSON.stringify({ status: "pass", results: [] })}\n`, "utf8");
+  await writeFile(
+    join(started.runDir, "test_plan.md"),
+    [
+      "# Test Plan",
+      "",
+      "Generated from local Runwise scan metadata.",
+      "",
+      "| ID | Title | Source | Risk | Type | Command | Status |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| TC-001 | Run unit tests | acceptance_criteria | regression | automated | npm test | pending |",
+      "| TC-002 | Run build | acceptance_criteria | release | automated | npm run build | pending |",
+      "| TC-003 | Review console copy | acceptance_criteria | usability | manual | | pending |",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  await writeFile(
+    join(started.runDir, "test_run.json"),
+    `${JSON.stringify({
+      status: "pass",
+      results: [
+        { id: "TC-001", exitCode: 0 },
+        { id: "TC-002", exitCode: 0, status: "passed" },
+      ],
+    })}\n`,
+    "utf8",
+  );
   await updateRunStage(started.runDir, "testing");
 
   const state = await loadConsoleState(root);
@@ -53,12 +86,76 @@ test("loadConsoleState returns local run progress and gate state", async () => {
   assert.equal(state.runs[0].grill.questionCount, 6);
   assert.equal(state.runs[0].grill.answered, true);
   assert.equal(state.runs[0].grill.answerCount, 1);
+  assert.deepEqual(state.runs[0].testPlan, {
+    exists: true,
+    generated: true,
+    caseCount: 3,
+    automatedCount: 2,
+    manualCount: 1,
+  });
+  assert.deepEqual(state.runs[0].testRun, {
+    exists: true,
+    status: "pass",
+    total: 2,
+    passed: 2,
+    failed: 0,
+  });
   assert.match(state.runs[0].nextAction, /archive/i);
   assert.deepEqual(state.runs[0].blockers, ["gap: archive"]);
+  assert.deepEqual(state.runs[0].archive, { exists: true, status: "gap", url: undefined });
+  assert.deepEqual(state.runs[0].memory, { exists: true, captured: false });
   assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "TECH_SPEC.md" && artifact.exists));
   assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "verification.md" && artifact.exists));
   assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "test_plan.md" && artifact.exists));
   assert.ok(state.runs[0].artifacts.some((artifact) => artifact.name === "test_run.json" && artifact.exists));
+});
+
+test("loadConsoleState reports archive links, missing archives, and memory capture", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-console-insights-"));
+  const empty = await startRun(root, {
+    title: "Empty insights",
+    now: "2026-07-22T11:13:00Z",
+  });
+  const linked = await startRun(root, {
+    title: "Linked archive",
+    now: "2026-07-22T11:14:00Z",
+  });
+  const recorded = await startRun(root, {
+    title: "Recorded archive",
+    now: "2026-07-22T11:14:30Z",
+  });
+  const missing = await startRun(root, {
+    title: "Missing insights",
+    now: "2026-07-22T11:15:00Z",
+  });
+
+  await recordArchiveLink(linked.runDir, {
+    title: "Console archive",
+    url: "https://linear.app/demo/issue/ENG-123/show-console-insights",
+  });
+  await writeFile(
+    join(linked.runDir, "memory_capture.md"),
+    "# Memory Capture\n\nTask: Linked archive\n\n- Console should surface archive and memory progress.\n",
+    "utf8",
+  );
+  await writeFile(join(recorded.runDir, "archive.md"), "# Archive\n\n- Local archive recorded.\n", "utf8");
+  await rm(join(missing.runDir, "archive.md"));
+  await rm(join(missing.runDir, "memory_capture.md"));
+
+  const state = await loadConsoleState(root);
+  const byTitle = new Map(state.runs.map((run) => [run.title, run]));
+
+  assert.deepEqual(byTitle.get("Empty insights").archive, { exists: true, status: "empty", url: undefined });
+  assert.deepEqual(byTitle.get("Empty insights").memory, { exists: true, captured: false });
+  assert.deepEqual(byTitle.get("Linked archive").archive, {
+    exists: true,
+    status: "linked",
+    url: "https://linear.app/demo/issue/ENG-123/show-console-insights",
+  });
+  assert.deepEqual(byTitle.get("Linked archive").memory, { exists: true, captured: true });
+  assert.deepEqual(byTitle.get("Recorded archive").archive, { exists: true, status: "recorded", url: undefined });
+  assert.deepEqual(byTitle.get("Missing insights").archive, { exists: false, status: "missing", url: undefined });
+  assert.deepEqual(byTitle.get("Missing insights").memory, { exists: false, captured: false });
 });
 
 test("renderConsoleHtml includes run list, progress, and local-first boundary", async () => {
@@ -72,8 +169,12 @@ test("renderConsoleHtml includes run list, progress, and local-first boundary", 
         stage: "testing",
         progress: { currentIndex: 6, total: 11, percent: 55, label: "Testing" },
         grill: { type: "backend", questionCount: 8, answerCount: 2, answered: true },
+        testPlan: { exists: true, generated: true, caseCount: 3, automatedCount: 2, manualCount: 1 },
+        testRun: { exists: true, status: "pass", total: 2, passed: 2, failed: 0 },
         nextAction: "Review archive gap or record canonical archive link.",
         blockers: ["gap: archive"],
+        archive: { exists: true, status: "gap", url: undefined },
+        memory: { exists: true, captured: false },
         finalGate: { status: "pass_with_gaps", missing: [], gaps: ["archive"], invalid: [] },
         artifacts: [
           { name: "TECH_SPEC.md", exists: true, href: "/runs/20260722-111000-console-flow/artifacts/TECH_SPEC.md" },
@@ -89,12 +190,81 @@ test("renderConsoleHtml includes run list, progress, and local-first boundary", 
   assert.match(html, /55%/);
   assert.match(html, /backend/);
   assert.match(html, /2\/8 answered/);
+  assert.match(html, /3 cases/);
+  assert.match(html, /2 automated/);
+  assert.match(html, /1 manual/);
+  assert.match(html, /pass 2\/2/);
   assert.match(html, /Review archive gap/);
   assert.match(html, /gap: archive/);
+  assert.match(html, /archive gap/i);
+  assert.match(html, /memory missing/i);
   assert.match(html, /pass_with_gaps/);
   assert.match(html, /TECH_SPEC\.md/);
   assert.match(html, /verification\.md/);
   assert.match(html, /source upload: false/i);
+});
+
+test("renderConsoleHtml does not label archive evidence without a URL as a link", async () => {
+  const html = renderConsoleHtml({
+    projectRoot: "/workspace/demo",
+    privacy: { sourceUpload: false, mode: "local_only" },
+    runs: [
+      {
+        id: "20260722-111600-recorded-archive",
+        title: "Recorded archive",
+        stage: "archive",
+        archive: { exists: true, status: "recorded", url: undefined },
+        memory: { exists: true, captured: true },
+        finalGate: { status: "pass", missing: [], gaps: [], invalid: [] },
+      },
+    ],
+  });
+
+  assert.match(html, /archive recorded/i);
+  assert.doesNotMatch(html, /archive link/i);
+});
+
+test("loadConsoleState reports missing and invalid test run evidence without crashing", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-console-test-run-"));
+  const missing = await startRun(root, {
+    title: "Missing test run",
+    now: "2026-07-22T11:13:00Z",
+  });
+  const invalid = await startRun(root, {
+    title: "Invalid test run",
+    now: "2026-07-22T11:14:00Z",
+  });
+  await writeFile(join(invalid.runDir, "test_run.json"), "{ bad json", "utf8");
+
+  const state = await loadConsoleState(root);
+
+  assert.equal(state.runs.find((run) => run.id === missing.runId).testRun.status, "missing");
+  assert.deepEqual(state.runs.find((run) => run.id === invalid.runId).testRun, {
+    exists: true,
+    status: "invalid",
+    total: 0,
+    passed: 0,
+    failed: 0,
+  });
+});
+
+test("loadConsoleState counts status-passed test run results", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-console-test-run-count-"));
+  const started = await startRun(root, {
+    title: "Status passed test run",
+    now: "2026-07-22T11:15:00Z",
+  });
+  await writeFile(
+    join(started.runDir, "test_run.json"),
+    `${JSON.stringify({ status: "pass", results: [{ id: "TC-001", status: "passed" }] })}\n`,
+    "utf8",
+  );
+
+  const state = await loadConsoleState(root);
+
+  assert.equal(state.runs[0].testRun.total, 1);
+  assert.equal(state.runs[0].testRun.passed, 1);
+  assert.equal(state.runs[0].testRun.failed, 0);
 });
 
 test("loadArtifactContent reads only known local run artifacts", async () => {
