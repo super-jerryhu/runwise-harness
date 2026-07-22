@@ -116,6 +116,33 @@ function templateFor(file, title) {
   return `# ${heading}\n\nTask: ${title}\n\n`;
 }
 
+function scoreText(text, words) {
+  const value = String(text || "").toLowerCase();
+  return words.reduce((score, word) => (value.includes(word) ? score + 1 : score), 0);
+}
+
+function inferRequirementType(title, scan = {}) {
+  const scores = {
+    backend: scoreText(title, ["api", "backend", "server", "webhook", "auth", "permission", "database", "db", "queue"]),
+    frontend: scoreText(title, ["ui", "frontend", "page", "screen", "component", "form", "layout", "mobile"]),
+    data: scoreText(title, ["data", "analytics", "report", "metric", "schema", "migration", "warehouse", "etl"]),
+    ops: scoreText(title, ["deploy", "release", "rollback", "monitor", "alert", "incident", "ci", "pipeline"]),
+  };
+
+  if (Array.isArray(scan.apiHints) && scan.apiHints.length > 0) scores.backend += 1;
+  if (Array.isArray(scan.serviceHints) && scan.serviceHints.length > 0) scores.backend += 1;
+  if (Array.isArray(scan.dbHints) && scan.dbHints.length > 0) scores.data += 1;
+  if (Array.isArray(scan.frameworks)) {
+    if (scan.frameworks.some((framework) => ["express", "fastify"].includes(framework))) scores.backend += 1;
+    if (scan.frameworks.some((framework) => ["next", "react", "vite", "vue", "svelte"].includes(framework))) {
+      scores.frontend += 1;
+    }
+  }
+
+  const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  return ranked[0][1] > 0 ? ranked[0][0] : "generic";
+}
+
 export async function startRun(root = process.cwd(), options = {}) {
   if (!options.title) {
     throw new Error("startRun requires a title");
@@ -143,7 +170,11 @@ export async function startRun(root = process.cwd(), options = {}) {
     await writeIfMissing(join(runDir, file), templateFor(file, options.title));
   }
 
-  return { runId, runDir };
+  const scan = (await readJsonIfExists(join(projectRoot, RUNWISE_DIR, "scan.json"))) || {};
+  const grillType = options.grillType || inferRequirementType(options.title, scan);
+  const grill = await generateGrillQuestions(projectRoot, runDir, { type: grillType });
+
+  return { runId, runDir, grill };
 }
 
 export async function updateRunStage(runDir, stage) {

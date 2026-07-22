@@ -15,7 +15,7 @@ Apply the lightest workflow that safely fits the task.
 
 1. Classify the requirement and risk.
 2. Create or locate a local Runwise run.
-3. Ask the few highest-leverage demand-grill questions.
+3. Review the auto-generated grill questions and ask the few highest-leverage demand-grill questions.
 4. Align context against current project files and `.runwise/` scanner output.
 5. Write or update design artifacts for substantial or risky work.
 6. Implement scoped changes.
@@ -35,7 +35,7 @@ runwise scan
 runwise start "<requirement title>" --json
 runwise status --json
 runwise stage <run-id> <stage> --json
-runwise grill <run-id> --generate --type <generic|backend|frontend|data|ops>
+runwise grill <run-id> --generate --type <generic|backend|frontend|data|ops> # regenerate if the inferred type is wrong
 runwise grill <run-id> --question "<question>" --answer "<answer>"
 runwise test-plan <run-id> --generate
 runwise test-run <run-id>

@@ -177,7 +177,7 @@ Use a small fixture repository.
 1. Run `runwise init`.
 2. Run `runwise scan`.
 3. Run `runwise start "add a small feature"`.
-4. Fill in intake and grill artifacts.
+4. Review the auto-generated grill questions, then fill in intake and answered grill evidence.
 5. Create a minimal test plan.
 6. Record verification evidence.
 7. Run `runwise final-gate <run-id>`.

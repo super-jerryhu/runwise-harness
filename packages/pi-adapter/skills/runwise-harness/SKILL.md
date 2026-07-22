@@ -12,7 +12,7 @@ Runwise is local-first. Do not upload source code, secrets, logs, embeddings, or
 ## Workflow
 
 1. Create or locate a Runwise run.
-2. Capture intake and demand-grill answers.
+2. Review the auto-generated grill questions and capture demand-grill answers.
 3. Align context against current files.
 4. Write or update design artifacts when the task is substantial or risky.
 5. Implement the scoped change.

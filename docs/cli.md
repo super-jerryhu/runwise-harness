@@ -89,6 +89,8 @@ Creates:
   memory_capture.md
 ```
 
+`start` also infers a first-pass grill type from the requirement title and existing `.runwise/scan.json`, then writes targeted unanswered questions into `grill.md`.
+
 ### `runwise status`
 
 List local runs.
@@ -135,7 +137,7 @@ done
 
 ### `runwise grill`
 
-Generate targeted demand clarification questions:
+Regenerate targeted demand clarification questions:
 
 ```bash
 node packages/cli/bin/runwise.js grill <run-id> --generate --type backend
@@ -151,7 +153,7 @@ node packages/cli/bin/runwise.js grill <run-id> \
   --answer "Internal operators."
 ```
 
-The final gate requires meaningful answered `grill.md` evidence. A freshly-created template or generated unanswered question list is not enough.
+The final gate requires meaningful answered `grill.md` evidence. A generated unanswered question list is not enough.
 
 ### `runwise test-plan`
 

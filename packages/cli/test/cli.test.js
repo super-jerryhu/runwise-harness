@@ -214,6 +214,33 @@ test("CLI can generate targeted demand grill questions", async () => {
   assert.match(gate.stdout, /grill_evidence/);
 });
 
+test("CLI start auto-generates a typed grill question plan after scan", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-cli-auto-grill-"));
+  await writeFile(
+    join(root, "package.json"),
+    JSON.stringify({ scripts: { test: "node --test" }, dependencies: { express: "1.0.0" } }),
+  );
+  await writeFile(join(root, "README.md"), "# API service\n");
+
+  assert.equal(run(["scan"], root).status, 0);
+
+  const start = run(
+    ["start", "Add backend webhook retry", "--now", "2026-07-22T12:09:00Z", "--json"],
+    root,
+  );
+
+  assert.equal(start.status, 0, start.stderr);
+  const payload = JSON.parse(start.stdout);
+  assert.equal(payload.grill.type, "backend");
+
+  const grill = await readFile(
+    join(root, ".runwise", "runs", "20260722-120900-add-backend-webhook-retry", "grill.md"),
+    "utf8",
+  );
+  assert.match(grill, /Type: backend/);
+  assert.match(grill, /data invariant/i);
+});
+
 test("CLI can update a run stage for progress tracking", async () => {
   const root = await mkdtemp(join(tmpdir(), "runwise-cli-stage-"));
 
