@@ -23,6 +23,7 @@ test("Pi adapter extension exposes Runwise commands and tools", async () => {
     "runwise-stage",
     "runwise-test-plan",
     "runwise-test-run",
+    "runwise-archive",
     "runwise-final-gate",
   ]) {
     assert.match(source, new RegExp(`registerCommand\\(\"${command}\"`));
@@ -35,6 +36,7 @@ test("Pi adapter extension exposes Runwise commands and tools", async () => {
     "runwise_generate_test_plan",
     "runwise_execute_test_run",
     "runwise_record_verification",
+    "runwise_record_archive",
     "runwise_final_gate",
   ]) {
     assert.match(source, new RegExp(`name:\\s*\"${tool}\"`));

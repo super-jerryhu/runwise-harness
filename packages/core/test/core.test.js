@@ -8,6 +8,7 @@ import {
   finalGate,
   generateTestPlan,
   initProject,
+  recordArchiveLink,
   scanProject,
   startRun,
   updateRunStage,
@@ -187,6 +188,29 @@ test("finalGate blocks failed or invalid test run reports", async () => {
   const invalidRun = await finalGate(runDir);
   assert.equal(invalidRun.status, "fail");
   assert.ok(invalidRun.invalid.includes("test_run.json"));
+});
+
+test("recordArchiveLink stores canonical archive evidence for final gate", async () => {
+  const root = await tempRepo();
+  const { runDir } = await startRun(root, {
+    title: "Archive link",
+    now: new Date("2026-07-22T12:06:00Z"),
+  });
+  await writeFile(join(runDir, "verification.md"), "# Verification\n\n- Command recorded: npm test\n- Exit code: 0\n");
+
+  const result = await recordArchiveLink(runDir, {
+    url: "https://linear.app/demo/issue/ENG-123/archive-link",
+    title: "ENG-123 Archive Link",
+  });
+
+  assert.equal(result.path, join(runDir, "archive.md"));
+  const archive = await readFile(join(runDir, "archive.md"), "utf8");
+  assert.match(archive, /ENG-123 Archive Link/);
+  assert.match(archive, /https:\/\/linear\.app\/demo\/issue\/ENG-123\/archive-link/);
+
+  const gate = await finalGate(runDir);
+  assert.equal(gate.status, "pass");
+  assert.deepEqual(gate.gaps, []);
 });
 
 test("generateTestPlan creates executable cases from local scan scripts", async () => {

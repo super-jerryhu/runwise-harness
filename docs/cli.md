@@ -186,6 +186,18 @@ node packages/cli/bin/runwise.js verify <run-id> \
   --notes "all tests passed"
 ```
 
+### `runwise archive`
+
+Record a canonical archive link.
+
+```bash
+node packages/cli/bin/runwise.js archive <run-id> \
+  --url "https://linear.app/example/issue/ENG-123/example" \
+  --title "ENG-123 Example"
+```
+
+This writes `.runwise/runs/<run-id>/archive.md` and satisfies archive evidence for the final gate.
+
 ### `runwise archive-gap`
 
 Record that external archive is intentionally unavailable or skipped.

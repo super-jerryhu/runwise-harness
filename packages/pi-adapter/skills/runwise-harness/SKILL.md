@@ -32,6 +32,7 @@ Runwise is local-first. Do not upload source code, secrets, logs, embeddings, or
 /runwise-stage <run-id> <stage>
 /runwise-test-plan <run-id>
 /runwise-test-run <run-id>
+/runwise-archive <run-id> <url> [title]
 /runwise-final-gate <run-id>
 ```
 
@@ -43,6 +44,7 @@ Runwise is local-first. Do not upload source code, secrets, logs, embeddings, or
 - `runwise_generate_test_plan`
 - `runwise_execute_test_run`
 - `runwise_record_verification`
+- `runwise_record_archive`
 - `runwise_final_gate`
 
 ## Rules

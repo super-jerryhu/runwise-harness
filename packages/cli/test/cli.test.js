@@ -75,6 +75,48 @@ test("CLI can record test planning, verification, and archive gaps for final gat
   assert.match(gate.stdout, /pass_with_gaps/);
 });
 
+test("CLI can record canonical archive links for final gate", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-cli-archive-"));
+
+  assert.equal(run(["start", "Archive canonical link", "--now", "2026-07-22T12:06:00Z"], root).status, 0);
+  assert.equal(
+    run(
+      [
+        "verify",
+        "20260722-120600-archive-canonical-link",
+        "--command",
+        "npm test",
+        "--exit-code",
+        "0",
+        "--notes",
+        "archive link verification",
+      ],
+      root,
+    ).status,
+    0,
+  );
+
+  const archive = run(
+    [
+      "archive",
+      "20260722-120600-archive-canonical-link",
+      "--url",
+      "https://linear.app/demo/issue/ENG-123/archive-canonical-link",
+      "--title",
+      "ENG-123 Archive Canonical Link",
+    ],
+    root,
+  );
+
+  assert.equal(archive.status, 0, archive.stderr);
+  assert.match(archive.stdout, /Archive recorded/);
+
+  const gate = run(["final-gate", "20260722-120600-archive-canonical-link"], root);
+  assert.equal(gate.status, 0, gate.stdout);
+  const gatePayload = JSON.parse(gate.stdout);
+  assert.equal(gatePayload.status, "pass");
+});
+
 test("CLI can generate a test plan from scanner output", async () => {
   const root = await mkdtemp(join(tmpdir(), "runwise-cli-generate-tests-"));
   await cp(resolve("fixtures/basic-node"), root, { recursive: true });
