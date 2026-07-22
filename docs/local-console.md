@@ -32,6 +32,7 @@ The first console version shows:
 - run count
 - final gate status counts
 - run list
+- run detail page
 - requirement title
 - stage and stage progress
 - inferred grill type
@@ -50,14 +51,17 @@ The first console version shows:
 
 ## API
 
-The console exposes one local JSON endpoint:
+The console exposes local routes:
 
 ```text
 GET /api/state
+GET /runs/:runId
 GET /runs/:runId/artifacts/:artifactName
 ```
 
-`/api/state` includes the project root, privacy boundary, run state, stage progress, test plan progress, test run status, final gate state, blocker summaries, next action guidance, archive progress, memory capture progress, and artifact metadata.
+`/api/state` is the JSON endpoint. It includes the project root, privacy boundary, run state, stage progress, test plan progress, test run status, final gate state, blocker summaries, next action guidance, archive progress, memory capture progress, and artifact metadata.
+
+`/runs/:runId` renders one run with its stage, grill, test plan, test run, final gate, archive, memory, next action, and artifact links.
 
 The artifact route can read known local run artifacts such as:
 
