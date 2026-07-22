@@ -171,6 +171,7 @@ Deliverables:
 - artifact viewer
 - test evidence view
 - local JSON state API
+- local artifact route with an artifact whitelist
 
 Exit criteria:
 

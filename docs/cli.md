@@ -189,6 +189,7 @@ The console serves:
 ```text
 /
 /api/state
+/runs/:runId/artifacts/:artifactName
 ```
 
 The console reads local `.runwise/` state and does not upload source code.
