@@ -170,6 +170,29 @@ The MVP final gate validates:
 - `subtasks.json` is valid JSON and contains a `subtasks` array
 - `test_plan.md` contains at least one `TC-###` test case
 
+### `runwise console`
+
+Start the local browser console.
+
+```bash
+node packages/cli/bin/runwise.js console
+```
+
+Use a custom host or port:
+
+```bash
+node packages/cli/bin/runwise.js console --host 127.0.0.1 --port 8787
+```
+
+The console serves:
+
+```text
+/
+/api/state
+```
+
+The console reads local `.runwise/` state and does not upload source code.
+
 ## Development
 
 Run tests:

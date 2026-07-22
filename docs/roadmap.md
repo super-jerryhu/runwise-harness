@@ -170,6 +170,7 @@ Deliverables:
 - stage progress
 - artifact viewer
 - test evidence view
+- local JSON state API
 
 Exit criteria:
 

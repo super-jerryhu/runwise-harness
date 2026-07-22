@@ -11,6 +11,7 @@ import {
   startRun,
   writeFinalGateReport,
 } from "../../core/src/index.js";
+import { createConsoleServer } from "../../console/src/index.js";
 
 function parseOption(args, name) {
   const index = args.indexOf(name);
@@ -34,6 +35,7 @@ Usage:
   runwise verify <run-id-or-dir> --command <command> [--exit-code <code>] [--notes <notes>]
   runwise archive-gap <run-id-or-dir> --reason <reason>
   runwise final-gate <run-id-or-dir> [--write-report]
+  runwise console [--host <host>] [--port <port>]
 `);
 }
 
@@ -129,6 +131,19 @@ async function main(argv) {
     }
     console.log(JSON.stringify(result, null, 2));
     return result.status === "fail" || result.status === "blocked" ? 1 : 0;
+  }
+
+  if (command === "console") {
+    const host = parseOption(args, "--host") || "127.0.0.1";
+    const port = Number.parseInt(parseOption(args, "--port") || "8787", 10);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error("console requires a valid --port between 1 and 65535");
+    }
+    const server = createConsoleServer({ root: process.cwd() });
+    server.listen(port, host, () => {
+      console.log(`Runwise Console: http://${host}:${port}`);
+    });
+    return undefined;
   }
 
   throw new Error(`Unknown command: ${command}`);

@@ -50,11 +50,12 @@ Runwise turns each AI coding task into a traceable engineering run.
 packages/
   core/          # workflow model, artifact contracts, final gate rules
   cli/           # runwise init/connect/scan/start/status/verify
+  console/       # local browser dashboard over .runwise state
   pi-adapter/    # Pi package: extension + skills + prompts
   codex-adapter/ # Codex skill/plugin adapter
 
 apps/
-  console/       # team dashboard, optional paid/cloud layer
+  console/       # hosted team dashboard, optional paid/cloud layer
   api/           # hosted workspace/project/run registry
 
 templates/
@@ -79,6 +80,7 @@ The first public milestone is a local-first open-source core:
 - workflow artifacts
 - basic final gate
 - scanner fixtures
+- local console
 - Pi adapter
 - Codex adapter
 
@@ -90,6 +92,7 @@ The first public milestone is a local-first open-source core:
 - [Roadmap](docs/roadmap.md)
 - [MVP Plan](docs/mvp.md)
 - [CLI](docs/cli.md)
+- [Local Console](docs/local-console.md)
 - [Pi Adapter](docs/pi-adapter.md)
 - [Codex Adapter](docs/codex-adapter.md)
 - [Privacy Model](docs/privacy.md)

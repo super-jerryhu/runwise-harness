@@ -1,0 +1,12 @@
+{
+  "name": "@runwise/harness-console",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Local browser console for Runwise Harness",
+  "license": "Apache-2.0",
+  "keywords": [
+    "runwise",
+    "agent-harness",
+    "local-console"
+  ]
+}
