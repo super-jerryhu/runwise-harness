@@ -35,6 +35,7 @@ runwise scan
 runwise start "<requirement title>" --json
 runwise status --json
 runwise stage <run-id> <stage> --json
+runwise grill <run-id> --generate --type <generic|backend|frontend|data|ops>
 runwise grill <run-id> --question "<question>" --answer "<answer>"
 runwise test-plan <run-id> --generate
 runwise test-run <run-id>

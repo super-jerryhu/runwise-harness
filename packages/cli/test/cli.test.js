@@ -191,6 +191,29 @@ test("CLI can record demand grill answers", async () => {
   assert.match(grill, /Reduce manual review time/);
 });
 
+test("CLI can generate targeted demand grill questions", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-cli-grill-generate-"));
+
+  assert.equal(run(["start", "Clarify backend demand", "--now", "2026-07-22T12:08:00Z"], root).status, 0);
+
+  const result = run(["grill", "20260722-120800-clarify-backend-demand", "--generate", "--type", "backend"], root);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Generated \d+ backend grill questions/);
+
+  const grill = await readFile(
+    join(root, ".runwise", "runs", "20260722-120800-clarify-backend-demand", "grill.md"),
+    "utf8",
+  );
+  assert.match(grill, /GRILL-001/);
+  assert.match(grill, /business outcome/i);
+  assert.match(grill, /data invariant/i);
+
+  const gate = run(["final-gate", "20260722-120800-clarify-backend-demand"], root);
+  assert.equal(gate.status, 1);
+  assert.match(gate.stdout, /grill_evidence/);
+});
+
 test("CLI can update a run stage for progress tracking", async () => {
   const root = await mkdtemp(join(tmpdir(), "runwise-cli-stage-"));
 

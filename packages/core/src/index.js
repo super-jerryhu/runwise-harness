@@ -303,9 +303,22 @@ async function validateGrill(runRoot, missing) {
   const path = join(runRoot, "grill.md");
   if (!existsSync(path)) return;
   const content = await readFile(path, "utf8");
-  if (!hasMeaningfulEvidence(content)) {
+  if (!hasAnsweredGrill(content)) {
     missing.push("grill_evidence");
   }
+}
+
+function hasAnsweredGrill(text) {
+  if (/^A:\s*\S.+$/m.test(text)) return true;
+  return text.split("\n").some((line) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("| GRILL-")) return false;
+    const cells = trimmed
+      .split("|")
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+    return Boolean(cells[3]);
+  });
 }
 
 async function validateTestRun(runRoot, invalid) {
@@ -448,6 +461,153 @@ export async function recordGrillAnswer(runDir, options = {}) {
   ].join("\n");
   await writeFile(path, next, "utf8");
   return { path };
+}
+
+const COMMON_GRILL_QUESTIONS = [
+  {
+    category: "business",
+    text: "What business outcome must this requirement improve, and how will we know it worked?",
+  },
+  {
+    category: "user",
+    text: "Who is the primary user or operator affected by this change?",
+  },
+  {
+    category: "scope",
+    text: "What is explicitly out of scope for this iteration?",
+  },
+  {
+    category: "acceptance",
+    text: "What acceptance signal must be true before implementation can be considered complete?",
+  },
+];
+
+const GRILL_QUESTIONS_BY_TYPE = {
+  generic: [
+    {
+      category: "risk",
+      text: "What failure mode would make this change harmful or misleading?",
+    },
+    {
+      category: "rollout",
+      text: "How should this change be rolled out, paused, or rolled back?",
+    },
+  ],
+  backend: [
+    {
+      category: "data",
+      text: "What data invariant must the backend preserve across create, update, retry, and rollback paths?",
+    },
+    {
+      category: "api",
+      text: "Which API contracts, permissions, and error responses must remain stable?",
+    },
+    {
+      category: "consistency",
+      text: "What async jobs, webhooks, or external services can create race conditions?",
+    },
+    {
+      category: "observability",
+      text: "What logs, metrics, or alerts are needed to detect production failure?",
+    },
+  ],
+  frontend: [
+    {
+      category: "workflow",
+      text: "What is the user's primary path through the interface, including empty, loading, and error states?",
+    },
+    {
+      category: "accessibility",
+      text: "What keyboard, responsive, and accessibility expectations must be preserved?",
+    },
+    {
+      category: "state",
+      text: "Which local state, server state, or cache behavior could become stale or inconsistent?",
+    },
+  ],
+  data: [
+    {
+      category: "lineage",
+      text: "What is the source of truth for each field this requirement reads or writes?",
+    },
+    {
+      category: "quality",
+      text: "What data quality checks are required before downstream users can trust the output?",
+    },
+    {
+      category: "privacy",
+      text: "What private, regulated, or customer-sensitive data must stay excluded?",
+    },
+  ],
+  ops: [
+    {
+      category: "runbook",
+      text: "What manual operator action or runbook step changes after this requirement ships?",
+    },
+    {
+      category: "rollback",
+      text: "What is the fastest safe rollback path if production behavior regresses?",
+    },
+    {
+      category: "ownership",
+      text: "Who owns triage if the workflow gets stuck or produces conflicting evidence?",
+    },
+  ],
+};
+
+function normalizeGrillType(type) {
+  if (!type) return "generic";
+  const normalized = String(type).toLowerCase();
+  if (Object.hasOwn(GRILL_QUESTIONS_BY_TYPE, normalized)) return normalized;
+  return "generic";
+}
+
+function escapeTableCell(value) {
+  return String(value).replace(/\|/g, "\\|").replace(/\n/g, " ");
+}
+
+function readTitleFromRunYaml(runYaml) {
+  return runYaml.match(/^title:\s*(.+)$/m)?.[1] || "requirement";
+}
+
+function formatGrillQuestions(title, type, questions) {
+  return [
+    "# Grill",
+    "",
+    `Task: ${title}`,
+    "",
+    "## Generated Questions",
+    "",
+    `Type: ${type}`,
+    "",
+    "| ID | Category | Question | Answer |",
+    "| --- | --- | --- | --- |",
+    ...questions.map(
+      (question) =>
+        `| ${question.id} | ${escapeTableCell(question.category)} | ${escapeTableCell(question.text)} |  |`,
+    ),
+    "",
+    "## Q&A",
+    "",
+    "Record answers with `runwise grill <run-id> --question <question> --answer <answer>`.",
+    "",
+  ].join("\n");
+}
+
+export async function generateGrillQuestions(root = process.cwd(), runIdOrDir, options = {}) {
+  if (!runIdOrDir) throw new Error("generateGrillQuestions requires a run id or run directory");
+  const projectRoot = resolve(root);
+  const runDir = resolveRunDir(projectRoot, runIdOrDir);
+  const type = normalizeGrillType(options.type);
+  const runYamlPath = join(runDir, "run.yaml");
+  const title = existsSync(runYamlPath) ? readTitleFromRunYaml(await readFile(runYamlPath, "utf8")) : "requirement";
+  const selected = [...COMMON_GRILL_QUESTIONS, ...GRILL_QUESTIONS_BY_TYPE[type]].map((question, index) => ({
+    id: `GRILL-${String(index + 1).padStart(3, "0")}`,
+    ...question,
+  }));
+  const path = join(runDir, "grill.md");
+  await writeFile(path, formatGrillQuestions(title, type, selected), "utf8");
+  return { path, type, questions: selected };
 }
 
 export async function recordArchiveLink(runDir, options = {}) {

@@ -135,7 +135,15 @@ done
 
 ### `runwise grill`
 
-Record demand clarification evidence.
+Generate targeted demand clarification questions:
+
+```bash
+node packages/cli/bin/runwise.js grill <run-id> --generate --type backend
+```
+
+Supported types are `generic`, `backend`, `frontend`, `data`, and `ops`.
+
+Record demand clarification evidence:
 
 ```bash
 node packages/cli/bin/runwise.js grill <run-id> \
@@ -143,7 +151,7 @@ node packages/cli/bin/runwise.js grill <run-id> \
   --answer "Internal operators."
 ```
 
-The final gate requires meaningful `grill.md` evidence. A freshly-created template is not enough.
+The final gate requires meaningful answered `grill.md` evidence. A freshly-created template or generated unanswered question list is not enough.
 
 ### `runwise test-plan`
 

@@ -30,6 +30,7 @@ Runwise is local-first. Do not upload source code, secrets, logs, embeddings, or
 /runwise-start <requirement title>
 /runwise-status
 /runwise-stage <run-id> <stage>
+/runwise-grill-plan <run-id> [generic|backend|frontend|data|ops]
 /runwise-grill <run-id> <answer>
 /runwise-test-plan <run-id>
 /runwise-test-run <run-id>
@@ -42,6 +43,7 @@ Runwise is local-first. Do not upload source code, secrets, logs, embeddings, or
 - `runwise_create_run`
 - `runwise_get_status`
 - `runwise_update_stage`
+- `runwise_generate_grill_questions`
 - `runwise_record_grill_answer`
 - `runwise_generate_test_plan`
 - `runwise_execute_test_run`
