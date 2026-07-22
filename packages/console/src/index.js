@@ -89,6 +89,7 @@ function nextActionForGate(gate = {}) {
   const invalid = gate.invalid || [];
   if (invalid.includes("test_run_failed")) return "Fix failing tests, rerun test-run, then run final gate.";
   if (invalid.length > 0) return `Fix invalid artifact: ${invalid[0]}.`;
+  if (missing.includes("grill_evidence")) return "Record demand-grill evidence with runwise grill.";
   if (missing.includes("verification_evidence")) return "Record verification evidence or run test-run.";
   if (missing.includes("test_cases")) return "Generate or write test cases in test_plan.md.";
   if (missing.length > 0) return `Complete missing artifact: ${missing[0]}.`;

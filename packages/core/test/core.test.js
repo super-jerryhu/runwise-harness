@@ -9,6 +9,7 @@ import {
   generateTestPlan,
   initProject,
   recordArchiveLink,
+  recordGrillAnswer,
   scanProject,
   startRun,
   updateRunStage,
@@ -124,7 +125,9 @@ test("finalGate fails when verification evidence is missing and passes with expl
   const failing = await finalGate(runDir);
   assert.equal(failing.status, "fail");
   assert.ok(failing.missing.includes("verification_evidence"));
+  assert.ok(failing.missing.includes("grill_evidence"));
 
+  await writeFile(join(runDir, "grill.md"), "# Grill\n\n## Q&A\n\n### Q: Who is affected?\n\nA: Internal users.\n");
   await writeFile(join(runDir, "verification.md"), "# Verification\n\n## Verification Gaps\n\n- Manual verification required.\n");
   await writeFile(join(runDir, "archive.md"), "# Archive\n\nArchive gap: local-only bootstrap.\n");
 
@@ -139,6 +142,7 @@ test("finalGate validates structured subtasks and test plan artifacts", async ()
     title: "Add structured gate",
     now: new Date("2026-07-22T10:04:00Z"),
   });
+  await writeFile(join(runDir, "grill.md"), "# Grill\n\n## Q&A\n\n### Q: What is the acceptance signal?\n\nA: Gate passes.\n");
   await writeFile(join(runDir, "verification.md"), "# Verification\n\n- Command recorded: npm test\n- Exit code: 0\n");
   await writeFile(join(runDir, "archive.md"), "# Archive\n\n- Local archive recorded.\n");
   await writeFile(join(runDir, "subtasks.json"), "{ bad json");
@@ -171,6 +175,7 @@ test("finalGate blocks failed or invalid test run reports", async () => {
     now: new Date("2026-07-22T12:05:00Z"),
   });
   await writeFile(join(runDir, "archive.md"), "# Archive\n\n- Local archive recorded.\n");
+  await writeFile(join(runDir, "grill.md"), "# Grill\n\n## Q&A\n\n### Q: What must be true?\n\nA: Tests must block completion.\n");
   await writeFile(join(runDir, "verification.md"), "# Verification\n\n- Command recorded: npm test\n- Exit code: 1\n");
   await writeFile(
     join(runDir, "test_run.json"),
@@ -196,6 +201,7 @@ test("recordArchiveLink stores canonical archive evidence for final gate", async
     title: "Archive link",
     now: new Date("2026-07-22T12:06:00Z"),
   });
+  await writeFile(join(runDir, "grill.md"), "# Grill\n\n## Q&A\n\n### Q: Where should it be archived?\n\nA: Linear.\n");
   await writeFile(join(runDir, "verification.md"), "# Verification\n\n- Command recorded: npm test\n- Exit code: 0\n");
 
   const result = await recordArchiveLink(runDir, {
@@ -211,6 +217,29 @@ test("recordArchiveLink stores canonical archive evidence for final gate", async
   const gate = await finalGate(runDir);
   assert.equal(gate.status, "pass");
   assert.deepEqual(gate.gaps, []);
+});
+
+test("recordGrillAnswer stores demand clarification evidence for final gate", async () => {
+  const root = await tempRepo();
+  const { runDir } = await startRun(root, {
+    title: "Clarify demand",
+    now: new Date("2026-07-22T12:07:00Z"),
+  });
+
+  const result = await recordGrillAnswer(runDir, {
+    question: "Who is the target user?",
+    answer: "Internal operators.",
+  });
+
+  assert.equal(result.path, join(runDir, "grill.md"));
+  const grill = await readFile(join(runDir, "grill.md"), "utf8");
+  assert.match(grill, /Who is the target user/);
+  assert.match(grill, /Internal operators/);
+
+  await writeFile(join(runDir, "verification.md"), "# Verification\n\n- Command recorded: npm test\n- Exit code: 0\n");
+  await writeFile(join(runDir, "archive.md"), "# Archive\n\n- Local archive recorded.\n");
+  const gate = await finalGate(runDir);
+  assert.equal(gate.status, "pass");
 });
 
 test("generateTestPlan creates executable cases from local scan scripts", async () => {

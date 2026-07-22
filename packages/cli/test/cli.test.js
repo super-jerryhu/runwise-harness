@@ -44,6 +44,20 @@ test("CLI can record test planning, verification, and archive gaps for final gat
 
   assert.equal(run(["init", "--name", "cli-demo"], root).status, 0);
   assert.equal(run(["start", "Add verified flow", "--now", "2026-07-22T10:03:00Z"], root).status, 0);
+  assert.equal(
+    run(
+      [
+        "grill",
+        "20260722-100300-add-verified-flow",
+        "--question",
+        "Who is affected?",
+        "--answer",
+        "Internal users.",
+      ],
+      root,
+    ).status,
+    0,
+  );
 
   const plan = run(["test-plan", "20260722-100300-add-verified-flow"], root);
   assert.equal(plan.status, 0, plan.stderr);
@@ -79,6 +93,20 @@ test("CLI can record canonical archive links for final gate", async () => {
   const root = await mkdtemp(join(tmpdir(), "runwise-cli-archive-"));
 
   assert.equal(run(["start", "Archive canonical link", "--now", "2026-07-22T12:06:00Z"], root).status, 0);
+  assert.equal(
+    run(
+      [
+        "grill",
+        "20260722-120600-archive-canonical-link",
+        "--question",
+        "Where is the canonical archive?",
+        "--answer",
+        "Linear issue.",
+      ],
+      root,
+    ).status,
+    0,
+  );
   assert.equal(
     run(
       [
@@ -136,6 +164,31 @@ test("CLI can generate a test plan from scanner output", async () => {
   assert.match(plan, /npm test/);
   assert.match(plan, /TC-002/);
   assert.match(plan, /npm run build/);
+});
+
+test("CLI can record demand grill answers", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-cli-grill-"));
+
+  assert.equal(run(["start", "Clarify CLI demand", "--now", "2026-07-22T12:07:00Z"], root).status, 0);
+
+  const result = run(
+    [
+      "grill",
+      "20260722-120700-clarify-cli-demand",
+      "--question",
+      "What is the primary business outcome?",
+      "--answer",
+      "Reduce manual review time.",
+    ],
+    root,
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Grill answer recorded/);
+
+  const grill = await readFile(join(root, ".runwise", "runs", "20260722-120700-clarify-cli-demand", "grill.md"), "utf8");
+  assert.match(grill, /primary business outcome/);
+  assert.match(grill, /Reduce manual review time/);
 });
 
 test("CLI can update a run stage for progress tracking", async () => {
@@ -250,6 +303,20 @@ test("CLI emits adapter-friendly JSON and writes final gate reports", async () =
   assert.equal(status.status, 0, status.stderr);
   const statusPayload = JSON.parse(status.stdout);
   assert.equal(statusPayload.runs[0].id, "20260722-100500-adapter-json-flow");
+  assert.equal(
+    run(
+      [
+        "grill",
+        "20260722-100500-adapter-json-flow",
+        "--question",
+        "What should be verified?",
+        "--answer",
+        "Adapter JSON output.",
+      ],
+      root,
+    ).status,
+    0,
+  );
 
   assert.equal(
     run(

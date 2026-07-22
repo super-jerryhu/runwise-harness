@@ -66,6 +66,8 @@ Common question areas:
 - rollback needs
 - verification expectations
 
+Record answered demand questions with `runwise grill <run-id> --question <question> --answer <answer>`. The final gate treats an empty grill template as missing demand evidence.
+
 ### 3. Context Alignment
 
 Load the minimum relevant project context:

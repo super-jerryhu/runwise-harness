@@ -133,6 +133,18 @@ memory
 done
 ```
 
+### `runwise grill`
+
+Record demand clarification evidence.
+
+```bash
+node packages/cli/bin/runwise.js grill <run-id> \
+  --question "Who is the target user?" \
+  --answer "Internal operators."
+```
+
+The final gate requires meaningful `grill.md` evidence. A freshly-created template is not enough.
+
 ### `runwise test-plan`
 
 Print the path to a run's test plan artifact.
@@ -241,6 +253,7 @@ blocked
 The MVP final gate validates:
 
 - required run files exist
+- demand grill evidence exists
 - verification evidence exists or an explicit gap is recorded
 - archive evidence exists or an explicit gap is recorded
 - `subtasks.json` is valid JSON and contains a `subtasks` array
