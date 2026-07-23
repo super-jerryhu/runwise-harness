@@ -21,6 +21,7 @@ const ARTIFACT_FILES = [
 ];
 
 const ARTIFACT_PREVIEW_LIMIT = 480;
+const TEST_OUTPUT_PREVIEW_LIMIT = 600;
 
 const WORKFLOW_STAGES = [
   { id: "intake", label: "Intake" },
@@ -68,6 +69,12 @@ function truncateArtifactPreview(content) {
   return `${content.slice(0, ARTIFACT_PREVIEW_LIMIT).trimEnd()}\n[truncated]`;
 }
 
+function truncateTestOutput(content) {
+  const text = String(content || "");
+  if (text.length <= TEST_OUTPUT_PREVIEW_LIMIT) return text;
+  return `${text.slice(0, TEST_OUTPUT_PREVIEW_LIMIT).trimEnd()}\n[truncated]`;
+}
+
 async function loadArtifactPreviews(run) {
   const previews = [];
   for (const artifact of run.artifacts || []) {
@@ -80,6 +87,37 @@ async function loadArtifactPreviews(run) {
     });
   }
   return previews;
+}
+
+async function loadTestRunDetail(runDir) {
+  const path = join(runDir, "test_run.json");
+  if (!existsSync(path)) {
+    return { exists: false, status: "missing", generatedAt: undefined, results: [] };
+  }
+
+  try {
+    const parsed = JSON.parse(await readFile(path, "utf8"));
+    if (!Array.isArray(parsed.results)) {
+      return { exists: true, status: "invalid", generatedAt: parsed.generatedAt, results: [] };
+    }
+
+    return {
+      exists: true,
+      status: ["pass", "fail"].includes(parsed.status) ? parsed.status : "invalid",
+      generatedAt: parsed.generatedAt,
+      results: parsed.results.map((result) => ({
+        id: result.id || "",
+        title: result.title || "",
+        command: result.command || "",
+        exitCode: Number.isInteger(result.exitCode) ? result.exitCode : undefined,
+        status: result.status || (result.exitCode === 0 ? "passed" : "failed"),
+        durationMs: Number.isFinite(result.durationMs) ? result.durationMs : undefined,
+        output: truncateTestOutput(result.stderr || result.stdout || ""),
+      })),
+    };
+  } catch {
+    return { exists: true, status: "invalid", generatedAt: undefined, results: [] };
+  }
 }
 
 function progressForStage(stage) {
@@ -342,6 +380,7 @@ export async function loadRunDetailState(root = process.cwd(), runId) {
     ...state,
     run: {
       ...run,
+      testRunDetail: await loadTestRunDetail(run.runDir),
       artifactPreviews: await loadArtifactPreviews(run),
     },
   };
@@ -645,6 +684,38 @@ export function renderRunDetailHtml(state) {
       </article>`,
     )
     .join("");
+  const testRunDetail = run.testRunDetail || { exists: false, status: "missing", generatedAt: undefined, results: [] };
+  const testEvidenceRows = (testRunDetail.results || [])
+    .map((result) => {
+      const output = result.output ?? truncateTestOutput(result.stderr || result.stdout || "");
+      return `<tr>
+        <td><code>${escapeHtml(result.id)}</code></td>
+        <td>${escapeHtml(result.title)}</td>
+        <td><code>${escapeHtml(result.command)}</code></td>
+        <td>${escapeHtml(result.exitCode ?? "")}</td>
+        <td><span class="gate ${statusClass(result.status === "passed" ? "pass" : "fail")}">${escapeHtml(result.status)}</span></td>
+        <td>${escapeHtml(result.durationMs ?? "")}</td>
+      </tr>${output ? `<tr><td colspan="6"><pre>${escapeHtml(output)}</pre></td></tr>` : ""}`;
+    })
+    .join("");
+  const testEvidence = testEvidenceRows
+    ? `<div class="line">generated: ${escapeHtml(testRunDetail.generatedAt || "unknown")}</div>
+      <div class="table-scroll">
+        <table class="evidence-table">
+          <thead>
+            <tr>
+              <th>Case</th>
+              <th>Title</th>
+              <th>Command</th>
+              <th>Exit</th>
+              <th>Status</th>
+              <th>ms</th>
+            </tr>
+          </thead>
+          <tbody>${testEvidenceRows}</tbody>
+        </table>
+      </div>`
+    : `<div class="muted">No structured test run evidence available.</div>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -675,6 +746,10 @@ export function renderRunDetailHtml(state) {
     .line { margin-top: 6px; color: #5f6368; }
     .preview { border-top: 1px solid #dadce0; padding-top: 12px; margin-top: 12px; }
     .preview:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+    .table-scroll { overflow-x: auto; margin-top: 10px; }
+    .evidence-table { width: 100%; border-collapse: collapse; }
+    .evidence-table th, .evidence-table td { text-align: left; border-top: 1px solid #dadce0; padding: 8px; vertical-align: top; }
+    .evidence-table th { color: #5f6368; font-size: 12px; background: #f8fafd; }
     pre {
       white-space: pre-wrap;
       word-break: break-word;
@@ -736,6 +811,10 @@ export function renderRunDetailHtml(state) {
     <section class="section" style="margin-top: 12px;">
       <h2>Next Action</h2>
       <div>${escapeHtml(run.nextAction || nextActionForGate(run.finalGate, grill))}</div>
+    </section>
+    <section class="section" style="margin-top: 12px;">
+      <h2>Test Evidence</h2>
+      ${testEvidence}
     </section>
     <section class="section" style="margin-top: 12px;">
       <h2>Artifacts</h2>

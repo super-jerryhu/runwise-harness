@@ -39,6 +39,7 @@ The first console version shows:
 - grill question and answer progress
 - test plan case, automated, and manual progress
 - test run status, including pass/fail/missing/invalid evidence and passed or failed result counts
+- structured test evidence on the run detail page, including case id, command, exit code, status, duration, and short output previews
 - final gate status
 - missing evidence, gaps, or invalid artifacts
 - final gate blockers
@@ -62,7 +63,7 @@ GET /runs/:runId/artifacts/:artifactName
 
 `/api/state` is the JSON endpoint. It includes the project root, privacy boundary, run state, stage progress, test plan progress, test run status, final gate state, blocker summaries, next action guidance, archive progress, memory capture progress, and artifact metadata.
 
-`/runs/:runId` renders one run with its stage, grill, test plan, test run, final gate, archive, memory, next action, artifact links, and short local artifact previews.
+`/runs/:runId` renders one run with its stage, grill, test plan, test run, structured test evidence, final gate, archive, memory, next action, artifact links, and short local artifact previews.
 
 The artifact route can read known local run artifacts such as:
 
