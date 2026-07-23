@@ -20,6 +20,8 @@ const ARTIFACT_FILES = [
   "final_gate.json",
 ];
 
+const ARTIFACT_PREVIEW_LIMIT = 480;
+
 const WORKFLOW_STAGES = [
   { id: "intake", label: "Intake" },
   { id: "grill", label: "Grill" },
@@ -59,6 +61,25 @@ function listArtifacts(runId, runDir) {
     exists: existsSync(join(runDir, name)),
     href: artifactHref(runId, name),
   }));
+}
+
+function truncateArtifactPreview(content) {
+  if (content.length <= ARTIFACT_PREVIEW_LIMIT) return content;
+  return `${content.slice(0, ARTIFACT_PREVIEW_LIMIT).trimEnd()}\n[truncated]`;
+}
+
+async function loadArtifactPreviews(run) {
+  const previews = [];
+  for (const artifact of run.artifacts || []) {
+    if (!artifact.exists || !ARTIFACT_FILES.includes(artifact.name)) continue;
+    const content = await readFile(join(run.runDir, artifact.name), "utf8");
+    previews.push({
+      name: artifact.name,
+      href: artifact.href,
+      preview: truncateArtifactPreview(content),
+    });
+  }
+  return previews;
 }
 
 function progressForStage(stage) {
@@ -307,6 +328,22 @@ export async function loadConsoleState(root = process.cwd()) {
       sourceUpload: false,
     },
     runs,
+  };
+}
+
+export async function loadRunDetailState(root = process.cwd(), runId) {
+  const state = await loadConsoleState(root);
+  const run = state.runs.find((item) => item.id === runId);
+  if (!run) {
+    throw new Error(`Run not found: ${runId}`);
+  }
+
+  return {
+    ...state,
+    run: {
+      ...run,
+      artifactPreviews: await loadArtifactPreviews(run),
+    },
   };
 }
 
@@ -600,6 +637,14 @@ export function renderRunDetailHtml(state) {
     .filter((artifact) => artifact.exists)
     .map((artifact) => `<a href="${escapeHtml(artifact.href)}">${escapeHtml(artifact.name)}</a>`)
     .join("");
+  const artifactPreviews = (run.artifactPreviews || [])
+    .map(
+      (artifact) => `<article class="preview">
+        <div><a href="${escapeHtml(artifact.href)}">${escapeHtml(artifact.name)}</a></div>
+        <pre>${escapeHtml(artifact.preview)}</pre>
+      </article>`,
+    )
+    .join("");
 
   return `<!doctype html>
 <html lang="en">
@@ -628,6 +673,20 @@ export function renderRunDetailHtml(state) {
     .gate.warn { background: #fef7e0; color: #b06000; }
     .artifacts { display: flex; flex-wrap: wrap; gap: 8px 12px; }
     .line { margin-top: 6px; color: #5f6368; }
+    .preview { border-top: 1px solid #dadce0; padding-top: 12px; margin-top: 12px; }
+    .preview:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #f8fafd;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      margin: 8px 0 0;
+      padding: 10px;
+      max-height: 220px;
+      overflow: auto;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
   </style>
 </head>
 <body>
@@ -682,6 +741,10 @@ export function renderRunDetailHtml(state) {
       <h2>Artifacts</h2>
       <div class="artifacts">${artifactLinks || "no artifacts"}</div>
     </section>
+    <section class="section" style="margin-top: 12px;">
+      <h2>Artifact Previews</h2>
+      ${artifactPreviews || '<div class="muted">No artifact previews available.</div>'}
+    </section>
   </main>
 </body>
 </html>`;
@@ -712,15 +775,17 @@ export function createConsoleServer(options = {}) {
       const runMatch = request.url?.match(/^\/runs\/([^/?#]+)$/);
       if (runMatch) {
         const runId = decodeURIComponent(runMatch[1]);
-        const state = await loadConsoleState(root);
-        const run = state.runs.find((item) => item.id === runId);
-        if (!run) {
+        const state = await loadRunDetailState(root, runId).catch((error) => {
+          if (error.message.startsWith("Run not found:")) return undefined;
+          throw error;
+        });
+        if (!state) {
           response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
           response.end("Run not found\n");
           return;
         }
         response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-        response.end(renderRunDetailHtml({ ...state, run }));
+        response.end(renderRunDetailHtml(state));
         return;
       }
 

@@ -47,6 +47,7 @@ The first console version shows:
 - memory captured or missing status
 - missing demand-grill evidence
 - links to local run artifacts
+- short inline previews for local run artifacts on the run detail page
 - test plan and verification evidence access
 
 ## API
@@ -61,7 +62,7 @@ GET /runs/:runId/artifacts/:artifactName
 
 `/api/state` is the JSON endpoint. It includes the project root, privacy boundary, run state, stage progress, test plan progress, test run status, final gate state, blocker summaries, next action guidance, archive progress, memory capture progress, and artifact metadata.
 
-`/runs/:runId` renders one run with its stage, grill, test plan, test run, final gate, archive, memory, next action, and artifact links.
+`/runs/:runId` renders one run with its stage, grill, test plan, test run, final gate, archive, memory, next action, artifact links, and short local artifact previews.
 
 The artifact route can read known local run artifacts such as:
 
