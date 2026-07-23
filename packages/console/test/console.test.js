@@ -11,6 +11,7 @@ import {
   renderConsoleHtml,
   renderRunDetailHtml,
   loadConsoleState,
+  loadRunDetailState,
 } from "../src/index.js";
 import {
   recordArchiveGap,
@@ -252,6 +253,13 @@ test("renderRunDetailHtml shows one run with insights and artifact links", async
         { name: "TECH_SPEC.md", exists: true, href: "/runs/20260722-111700-detail-flow/artifacts/TECH_SPEC.md" },
         { name: "test_run.json", exists: true, href: "/runs/20260722-111700-detail-flow/artifacts/test_run.json" },
       ],
+      artifactPreviews: [
+        {
+          name: "TECH_SPEC.md",
+          href: "/runs/20260722-111700-detail-flow/artifacts/TECH_SPEC.md",
+          preview: "# TECH_SPEC\n\nUse <trusted> evidence.",
+        },
+      ],
     },
   });
 
@@ -266,7 +274,32 @@ test("renderRunDetailHtml shows one run with insights and artifact links", async
   assert.match(html, /Fix failing tests/);
   assert.match(html, /TECH_SPEC\.md/);
   assert.match(html, /test_run\.json/);
+  assert.match(html, /Artifact Previews/);
+  assert.match(html, /Use &lt;trusted&gt; evidence/);
   assert.match(html, /Back to runs/);
+});
+
+test("loadRunDetailState adds short previews for known artifacts", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-console-detail-state-"));
+  const started = await startRun(root, {
+    title: "Preview artifacts",
+    now: "2026-07-22T11:18:00Z",
+  });
+  const longBody = `<script>alert("x")</script> ${"A".repeat(700)}`;
+  await writeFile(join(started.runDir, "TECH_SPEC.md"), `# TECH_SPEC\n\n${longBody}\n`, "utf8");
+  await writeFile(join(started.runDir, "test_plan.md"), "# Test Plan\n\n| ID | Title |\n| --- | --- |\n| TC-001 | Preview evidence |\n", "utf8");
+
+  const state = await loadRunDetailState(root, "20260722-111800-preview-artifacts");
+
+  assert.equal(state.run.id, "20260722-111800-preview-artifacts");
+  assert.ok(state.run.artifactPreviews.some((preview) => preview.name === "TECH_SPEC.md"));
+  assert.ok(state.run.artifactPreviews.some((preview) => preview.name === "test_plan.md"));
+  const techSpecPreview = state.run.artifactPreviews.find((preview) => preview.name === "TECH_SPEC.md");
+  assert.equal(techSpecPreview.href, "/runs/20260722-111800-preview-artifacts/artifacts/TECH_SPEC.md");
+  assert.ok(techSpecPreview.preview.length < longBody.length);
+  assert.match(techSpecPreview.preview, /\[truncated\]/);
+  assert.match(techSpecPreview.preview, /<script>/);
+  await assert.rejects(() => loadRunDetailState(root, "missing-run"), /Run not found/);
 });
 
 test("loadConsoleState reports missing and invalid test run evidence without crashing", async () => {
@@ -349,7 +382,12 @@ test("createConsoleServer serves HTML and API state locally", async () => {
     );
     assert.match(detail, /Run Detail/);
     assert.match(detail, /Serve console/);
+    assert.match(detail, /Artifact Previews/);
+    assert.match(detail, /Task: Serve console/);
     assert.match(detail, /Back to runs/);
+
+    const missing = await fetch(`http://127.0.0.1:${address.port}/runs/missing-run`);
+    assert.equal(missing.status, 404);
 
     const artifact = await fetch(
       `http://127.0.0.1:${address.port}/runs/20260722-111100-serve-console/artifacts/intake.md`,
