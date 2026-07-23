@@ -244,6 +244,33 @@ test("renderRunDetailHtml shows one run with insights and artifact links", async
       grill: { type: "backend", questionCount: 8, answerCount: 3, answered: true },
       testPlan: { exists: true, generated: true, caseCount: 4, automatedCount: 3, manualCount: 1 },
       testRun: { exists: true, status: "fail", total: 4, passed: 3, failed: 1 },
+      testRunDetail: {
+        exists: true,
+        status: "fail",
+        generatedAt: "2026-07-22T11:19:00Z",
+        results: [
+          {
+            id: "TC-001",
+            title: "Run unit tests",
+            command: "npm test",
+            exitCode: 0,
+            status: "passed",
+            durationMs: 120,
+            stdout: "ok",
+            stderr: "",
+          },
+          {
+            id: "TC-002",
+            title: "Run build",
+            command: "npm run build",
+            exitCode: 1,
+            status: "failed",
+            durationMs: 240,
+            stdout: "",
+            stderr: "Build <failed>",
+          },
+        ],
+      },
       archive: { exists: true, status: "linked", url: "https://linear.app/demo/issue/ENG-123/detail-flow" },
       memory: { exists: true, captured: true },
       nextAction: "Fix failing tests, rerun test-run, then run final gate.",
@@ -269,6 +296,11 @@ test("renderRunDetailHtml shows one run with insights and artifact links", async
   assert.match(html, /3\/8 answered/);
   assert.match(html, /4 cases/);
   assert.match(html, /fail 1\/4/);
+  assert.match(html, /Test Evidence/);
+  assert.match(html, /TC-001/);
+  assert.match(html, /Run unit tests/);
+  assert.match(html, /npm run build/);
+  assert.match(html, /Build &lt;failed&gt;/);
   assert.match(html, /archive link/);
   assert.match(html, /memory captured/);
   assert.match(html, /Fix failing tests/);
@@ -300,6 +332,63 @@ test("loadRunDetailState adds short previews for known artifacts", async () => {
   assert.match(techSpecPreview.preview, /\[truncated\]/);
   assert.match(techSpecPreview.preview, /<script>/);
   await assert.rejects(() => loadRunDetailState(root, "missing-run"), /Run not found/);
+});
+
+test("loadRunDetailState parses structured test run evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runwise-console-test-evidence-"));
+  const started = await startRun(root, {
+    title: "Structured evidence",
+    now: "2026-07-22T11:19:00Z",
+  });
+  await writeFile(
+    join(started.runDir, "test_run.json"),
+    `${JSON.stringify({
+      status: "fail",
+      generatedAt: "2026-07-22T11:20:00Z",
+      results: [
+        {
+          id: "TC-001",
+          title: "Run unit tests",
+          command: "npm test",
+          exitCode: 0,
+          status: "passed",
+          durationMs: 10,
+          stdout: "all good",
+          stderr: "",
+        },
+        {
+          id: "TC-002",
+          title: "Run build",
+          command: "npm run build",
+          exitCode: 1,
+          status: "failed",
+          durationMs: 25,
+          stdout: "",
+          stderr: `<script>alert("x")</script>${"x".repeat(700)}`,
+        },
+      ],
+    })}\n`,
+    "utf8",
+  );
+
+  const state = await loadRunDetailState(root, "20260722-111900-structured-evidence");
+
+  assert.equal(state.run.testRunDetail.exists, true);
+  assert.equal(state.run.testRunDetail.status, "fail");
+  assert.equal(state.run.testRunDetail.generatedAt, "2026-07-22T11:20:00Z");
+  assert.equal(state.run.testRunDetail.results.length, 2);
+  assert.deepEqual(state.run.testRunDetail.results[0], {
+    id: "TC-001",
+    title: "Run unit tests",
+    command: "npm test",
+    exitCode: 0,
+    status: "passed",
+    durationMs: 10,
+    output: "all good",
+  });
+  assert.equal(state.run.testRunDetail.results[1].status, "failed");
+  assert.match(state.run.testRunDetail.results[1].output, /<script>/);
+  assert.match(state.run.testRunDetail.results[1].output, /\[truncated\]/);
 });
 
 test("loadConsoleState reports missing and invalid test run evidence without crashing", async () => {
